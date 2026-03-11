@@ -1,0 +1,9 @@
+profile_name,hands,vpip_pct,pfr_pct,three_bet_pct,flop_seen,turn_seen,river_seen,flop_cbet_pct,turn_barrel_pct,showdowns,wins
+Balanced Reg,10,100.0,30.0,0.0,10,1,1,0.0,0.0,2,1
+Calling Station,10,100.0,0.0,0.0,10,1,0,0.0,0.0,1,2
+LAG,10,100.0,20.0,0.0,10,2,0,50.0,0.0,1,3
+Maniac,10,100.0,0.0,0.0,10,2,2,0.0,0.0,3,0
+Nit,10,0.0,0.0,0.0,0,0,0,0.0,0.0,0,0
+Pressure Reg,10,100.0,0.0,0.0,10,0,0,0.0,0.0,1,1
+TAG,10,70.0,70.0,0.0,7,1,1,16.7,0.0,2,0
+Trapper,10,100.0,0.0,0.0,10,3,1,0.0,66.7,2,3

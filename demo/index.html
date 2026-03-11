@@ -1,0 +1,216 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>PKclaw Decision Core Demo</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <div class="app-shell">
+    <header class="topbar">
+      <div>
+        <p class="eyebrow">PKclaw / Product Demo</p>
+        <h1>Configurable Poker Bot</h1>
+      </div>
+      <div class="topbar-meta">
+        <span class="status-dot"></span>
+        <span>Local simulation mode</span>
+      </div>
+    </header>
+
+    <main class="layout">
+      <section class="panel hero-panel compact-hero">
+        <div class="hero-copy">
+          <p class="eyebrow">Decision Core</p>
+          <h2>Give the bot a personality, then watch the line it wants to take.</h2>
+          <p class="hero-text">
+            This first demo focuses on style expression and explainable decisions for 8-handed No-Limit Hold'em.
+            It is not a solver. It is a product-facing control surface for a stable autonomous poker bot.
+          </p>
+        </div>
+
+        <div class="hero-metrics">
+          <article class="metric-card">
+            <span class="metric-label">Table</span>
+            <strong>8-Max NLH</strong>
+          </article>
+          <article class="metric-card">
+            <span class="metric-label">Stack Depth</span>
+            <strong>100 BB</strong>
+          </article>
+          <article class="metric-card">
+            <span class="metric-label">Decision Mode</span>
+            <strong>Stable + Seeded</strong>
+          </article>
+        </div>
+      </section>
+
+      <section class="grid">
+        <aside class="left-column">
+          <section class="panel">
+            <div class="section-head">
+              <div>
+                <p class="eyebrow">Bot Profile</p>
+                <h3>Style Presets</h3>
+              </div>
+            </div>
+            <div id="preset-grid" class="preset-grid"></div>
+          </section>
+
+          <section class="panel">
+            <div class="section-head">
+              <div>
+                <p class="eyebrow">Bot Personality</p>
+                <h3>Style Controls</h3>
+              </div>
+              <button id="reset-style" class="ghost-button" type="button">Reset</button>
+            </div>
+            <div id="slider-list" class="slider-list"></div>
+          </section>
+        </aside>
+
+        <section class="center-column">
+          <section class="panel state-panel">
+            <div class="section-head">
+              <div>
+                <p class="eyebrow">Game State</p>
+                <h3>Current Spot</h3>
+              </div>
+              <div class="scenario-picker">
+                <label for="scenario-select">Scenario</label>
+                <select id="scenario-select"></select>
+              </div>
+            </div>
+
+            <div class="state-grid">
+              <article class="state-card emphasis">
+                <span class="label">Hero Hand</span>
+                <strong id="hero-hand">Ah Kh</strong>
+                <span id="hero-position" class="subtle">BTN</span>
+              </article>
+              <article class="state-card">
+                <span class="label">Street</span>
+                <strong id="street">Preflop</strong>
+                <span id="board" class="subtle">Board: --</span>
+              </article>
+              <article class="state-card">
+                <span class="label">Pot</span>
+                <strong id="pot-size">2.5 BB</strong>
+                <span id="to-call" class="subtle">To call: 0 BB</span>
+              </article>
+              <article class="state-card">
+                <span class="label">History</span>
+                <strong id="history">Folded to BTN</strong>
+                <span id="stack-size" class="subtle">Effective: 100 BB</span>
+              </article>
+            </div>
+
+            <div class="table-visual">
+              <div class="table-ring"></div>
+              <div class="seat seat-utg">UTG</div>
+              <div class="seat seat-utg1">UTG+1</div>
+              <div class="seat seat-mp">MP</div>
+              <div class="seat seat-hj">HJ</div>
+              <div class="seat seat-co">CO</div>
+              <div class="seat seat-btn hero">BTN</div>
+              <div class="seat seat-sb">SB</div>
+              <div class="seat seat-bb">BB</div>
+              <div class="table-center">
+                <span class="table-title">Pot</span>
+                <strong id="table-pot">2.5 BB</strong>
+              </div>
+            </div>
+          </section>
+
+          <section class="panel summary-panel">
+            <div class="section-head">
+              <div>
+                <p class="eyebrow">Simulation Stats</p>
+                <h3>Profile Summary</h3>
+              </div>
+              <span id="summary-status" class="subtle">Run a simulation to load latest stats.</span>
+            </div>
+            <div class="summary-table-wrap">
+              <table class="summary-table">
+                <thead>
+                  <tr>
+                    <th>Profile</th>
+                    <th>VPIP</th>
+                    <th>PFR</th>
+                    <th>3B</th>
+                    <th>Flop CBet</th>
+                    <th>Turn Barrel</th>
+                    <th>Wins</th>
+                  </tr>
+                </thead>
+                <tbody id="summary-body">
+                  <tr><td colspan="7">No summary loaded yet.</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </section>
+        </section>
+
+        <aside class="right-column">
+          <section class="panel result-panel">
+            <div class="section-head">
+              <div>
+                <p class="eyebrow">Decision Output</p>
+                <h3>Bot Recommendation</h3>
+              </div>
+              <button id="run-decision" class="primary-button" type="button">Run Decision</button>
+            </div>
+
+            <article class="decision-card">
+              <div class="decision-header">
+                <span class="label">Selected Action</span>
+                <span id="decision-badge" class="action-pill raise">Raise</span>
+              </div>
+              <div class="decision-main">
+                <strong id="decision-size">2.5 BB</strong>
+                <span id="decision-summary" class="subtle">Late-position steal with strong Broadway hand.</span>
+              </div>
+            </article>
+
+            <div class="probability-block">
+              <div class="probability-row">
+                <span>Fold</span>
+                <div class="bar-track"><div id="bar-fold" class="bar-fill fold"></div></div>
+                <strong id="prob-fold">0%</strong>
+              </div>
+              <div class="probability-row">
+                <span>Call</span>
+                <div class="bar-track"><div id="bar-call" class="bar-fill call"></div></div>
+                <strong id="prob-call">18%</strong>
+              </div>
+              <div class="probability-row">
+                <span>Bet / Raise</span>
+                <div class="bar-track"><div id="bar-raise" class="bar-fill raise"></div></div>
+                <strong id="prob-raise">82%</strong>
+              </div>
+            </div>
+
+            <div>
+              <p class="eyebrow">Reason Tags</p>
+              <div id="reason-tags" class="tag-list"></div>
+            </div>
+          </section>
+
+          <section class="panel console-panel">
+            <div class="section-head">
+              <div>
+                <p class="eyebrow">Trace</p>
+                <h3>Decision Notes</h3>
+              </div>
+            </div>
+            <ul id="decision-trace" class="trace-list"></ul>
+          </section>
+        </aside>
+      </section>
+    </main>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>

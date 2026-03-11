@@ -1,0 +1,11 @@
+hand_id,board,pot,winners,showdown
+1,5h Kh Ts,23.59,Bot8,False
+2,Kh Js 8h 4c 2c,328.61,Bot3,True
+3,Ts 6c Kh,139.22,Bot4,False
+4,Qc 4s Ac,26.64,Bot7,False
+5,Jc 4s 6d 7h,157.76,Bot4,False
+6,2s Ks 9d,45.41,Bot5,False
+7,Ks As Qs,29.4,Bot7,False
+8,5d 6d 7c 8h 2h,310.52,Bot5,True
+9,3d Js Qh,21.14,Bot4,False
+10,8s 6h Qc 2s 3c,160.84,Bot7,True
