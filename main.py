@@ -1,21 +1,59 @@
 from __future__ import annotations
 
 import argparse
+import json
 from functools import partial
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
+from random import Random
+from urllib.parse import parse_qs, urlparse
 
 from pkbot.engine import TableSimulator
 from pkbot.exporter import export_hand_results
+from pkbot.replay import build_hand_replay
 from pkbot.test_scenarios import run_demo_scenarios
 
 HOST = "127.0.0.1"
 PORT = 8000
 
 
+class DemoRequestHandler(SimpleHTTPRequestHandler):
+    server_version = "PKclawDemo/1.0"
+
+    def do_GET(self) -> None:
+        parsed = urlparse(self.path)
+        if parsed.path == "/api/replay":
+            self._serve_replay(parsed.query)
+            return
+        super().do_GET()
+
+    def _serve_replay(self, query: str) -> None:
+        params = parse_qs(query)
+        seed_values = params.get("seed")
+        if seed_values:
+            try:
+                seed = int(seed_values[0])
+            except ValueError:
+                seed = Random().randint(1, 10_000_000)
+        else:
+            seed = Random().randint(1, 10_000_000)
+
+        simulator = TableSimulator(seed=seed)
+        result = simulator.simulate_hand(hand_seed=seed, verbose=False)
+        payload = {"seed": seed, "replay": build_hand_replay(result)}
+        body = json.dumps(payload, ensure_ascii=True).encode("utf-8")
+
+        self.send_response(200)
+        self.send_header("Content-Type", "application/json; charset=utf-8")
+        self.send_header("Cache-Control", "no-store")
+        self.send_header("Content-Length", str(len(body)))
+        self.end_headers()
+        self.wfile.write(body)
+
+
 def serve_ui() -> None:
     root_dir = Path(__file__).resolve().parent
-    handler = partial(SimpleHTTPRequestHandler, directory=str(root_dir))
+    handler = partial(DemoRequestHandler, directory=str(root_dir))
     server = ThreadingHTTPServer((HOST, PORT), handler)
     print(f"PKclaw demo running at http://{HOST}:{PORT}/demo/")
     try:

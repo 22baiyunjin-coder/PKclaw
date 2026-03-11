@@ -47,6 +47,15 @@ class BotPlayer:
 
 
 @dataclass(slots=True)
+class HandPlayer:
+    name: str
+    position: str
+    profile_name: str
+    hole_cards: list[Card]
+    starting_stack: float
+
+
+@dataclass(slots=True)
 class HandResult:
     hand_id: int
     board: list[Card]
@@ -55,6 +64,10 @@ class HandResult:
     showdown: bool
     action_history: list[ActionRecord]
     stacks: dict[str, float]
+    players: list[HandPlayer]
+    starting_stack: float
+    small_blind: float
+    big_blind: float
 
 
 class TableSimulator:
@@ -170,6 +183,19 @@ class TableSimulator:
             showdown=showdown,
             action_history=history,
             stacks={player.name: round(player.stack, 2) for player in self.players},
+            players=[
+                HandPlayer(
+                    name=player.name,
+                    position=player.position,
+                    profile_name=player.profile.name,
+                    hole_cards=player.hole_cards[:],
+                    starting_stack=self.starting_stack,
+                )
+                for player in self.players
+            ],
+            starting_stack=self.starting_stack,
+            small_blind=self.small_blind,
+            big_blind=self.big_blind,
         )
 
     def _run_betting_round(
