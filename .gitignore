@@ -1,0 +1,9 @@
+__pycache__/
+*.pyc
+.venv/
+outputs/
+*.png
+outputs/evaluator_smoke/
+outputs/evaluator_demo_smoke/
+outputs/evaluator_v1_smoke/
+outputs/*smoke*/

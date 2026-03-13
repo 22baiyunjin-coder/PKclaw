@@ -6,9 +6,15 @@ from typing import Iterable
 
 from .cards import Card, card_list_to_str, evaluate_seven_card_hand, fresh_deck
 from .decision_engine import DecisionEngine
-from .game_state import ActionRecord, GameState, LegalActions
+from .evaluator_tuning import EvaluatorTuning
+from .feature_builder import FeatureBuilder
+from .game_state import ActionRecord, DecisionSample, GameState, LegalActions
+from .model_interface import EvaluatorModel
+from .policy_adapter import PolicyAdapter
+from .policy_interface import PolicyModel
 from .presets import preset_cycle_for_table
 from .style_profile import StyleProfile
+from .strategy import StrategyLayer
 
 POSITIONS = ["UTG", "UTG+1", "MP", "HJ", "CO", "BTN", "SB", "BB"]
 PRE_FLOP_ORDER = POSITIONS[:]
@@ -63,6 +69,7 @@ class HandResult:
     winners: list[str]
     showdown: bool
     action_history: list[ActionRecord]
+    decision_samples: list[DecisionSample]
     stacks: dict[str, float]
     players: list[HandPlayer]
     starting_stack: float
@@ -71,7 +78,17 @@ class HandResult:
 
 
 class TableSimulator:
-    def __init__(self, seed: int = 42, starting_stack: float = 100.0, small_blind: float = 0.5, big_blind: float = 1.0) -> None:
+    def __init__(
+        self,
+        seed: int = 42,
+        starting_stack: float = 100.0,
+        small_blind: float = 0.5,
+        big_blind: float = 1.0,
+        evaluator_model: EvaluatorModel | None = None,
+        evaluator_tuning: EvaluatorTuning | None = None,
+        policy_model: PolicyModel | None = None,
+        policy_adapter: PolicyAdapter | None = None,
+    ) -> None:
         profiles = preset_cycle_for_table()
         self.players = [BotPlayer(f"Bot{i + 1}", POSITIONS[i], profiles[i], stack=starting_stack) for i in range(8)]
         self.seed = seed
@@ -79,7 +96,19 @@ class TableSimulator:
         self.starting_stack = starting_stack
         self.small_blind = small_blind
         self.big_blind = big_blind
-        self.decision_engine = DecisionEngine()
+        self.feature_builder = FeatureBuilder()
+        strategy_layer = None
+        resolved_policy_adapter = policy_adapter
+        if resolved_policy_adapter is None and policy_model is not None:
+            resolved_policy_adapter = PolicyAdapter(policy_model)
+        if resolved_policy_adapter is not None:
+            strategy_layer = StrategyLayer(evaluator_tuning, policy_adapter=resolved_policy_adapter)
+        self.decision_engine = DecisionEngine(
+            evaluator_model=evaluator_model,
+            feature_builder=self.feature_builder,
+            evaluator_tuning=evaluator_tuning,
+            strategy_layer=strategy_layer,
+        )
         self.hand_counter = 0
 
     def reset_stacks(self) -> None:
@@ -110,6 +139,7 @@ class TableSimulator:
 
         board: list[Card] = []
         history: list[ActionRecord] = []
+        decision_samples: list[DecisionSample] = []
         pot = 0.0
 
         pot += self._post_blind("SB", self.small_blind, history)
@@ -147,6 +177,7 @@ class TableSimulator:
                 street=street,
                 board=board,
                 history=history,
+                decision_samples=decision_samples,
                 pot=pot,
                 current_bet=current_bet,
                 min_raise_increment=min_raise_increment,
@@ -182,6 +213,7 @@ class TableSimulator:
             winners=[player.name for player in winners],
             showdown=showdown,
             action_history=history,
+            decision_samples=decision_samples,
             stacks={player.name: round(player.stack, 2) for player in self.players},
             players=[
                 HandPlayer(
@@ -203,6 +235,7 @@ class TableSimulator:
         street: str,
         board: list[Card],
         history: list[ActionRecord],
+        decision_samples: list[DecisionSample],
         pot: float,
         current_bet: float,
         min_raise_increment: float,
@@ -220,6 +253,8 @@ class TableSimulator:
 
                 legal = self._legal_actions(player, current_bet, min_raise_increment)
                 state = self._build_game_state(player, street, board, pot, current_bet, min_raise_increment, legal, history, order)
+                raw_state = self.feature_builder.serialize_state(state, player.profile)
+                derived_features = self.feature_builder.build(state, player.profile)
                 decision = self.decision_engine.decide(state, player.profile)
                 facing_amount = max(0.0, current_bet - player.street_bet)
                 pot_before = pot
@@ -249,6 +284,23 @@ class TableSimulator:
                         reason_tags=decision.reason_tags[:],
                         action_probabilities=decision.action_probabilities.copy(),
                         profile_name=player.profile.name,
+                    )
+                )
+                decision_samples.append(
+                    DecisionSample(
+                        street=street,
+                        player_name=player.name,
+                        position=player.position,
+                        profile_name=player.profile.name,
+                        action=action,
+                        committed_amount=round(amount, 2),
+                        selected_size=decision.size,
+                        size_bucket=decision.size_bucket,
+                        raw_state=raw_state,
+                        features=derived_features,
+                        action_probabilities=decision.action_probabilities.copy(),
+                        reason_tags=decision.reason_tags[:],
+                        model_outputs=decision.model_outputs.copy(),
                     )
                 )
 

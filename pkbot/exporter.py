@@ -30,23 +30,24 @@ def hand_result_to_dict(result: HandResult) -> dict[str, object]:
 def _decision_rows(results: Iterable[HandResult]) -> list[dict[str, object]]:
     rows: list[dict[str, object]] = []
     for result in results:
-        for action in result.action_history:
-            if action.note == "blind_post":
-                continue
+        for sample_index, sample in enumerate(result.decision_samples):
             rows.append(
                 {
                     "hand_id": result.hand_id,
-                    "street": action.street,
-                    "player_name": action.player_name,
-                    "position": action.position,
-                    "profile_name": action.profile_name,
-                    "action": action.action,
-                    "amount": action.amount,
-                    "facing_amount": action.facing_amount,
-                    "pot_before": action.pot_before,
-                    "reason_tags": "|".join(action.reason_tags),
-                    "action_probabilities": json.dumps(action.action_probabilities, ensure_ascii=True),
-                    "note": action.note,
+                    "sample_index": sample_index,
+                    "street": sample.street,
+                    "player_name": sample.player_name,
+                    "position": sample.position,
+                    "profile_name": sample.profile_name,
+                    "action": sample.action,
+                    "committed_amount": sample.committed_amount,
+                    "selected_size": sample.selected_size,
+                    "size_bucket": sample.size_bucket,
+                    "reason_tags": "|".join(sample.reason_tags),
+                    "action_probabilities": json.dumps(sample.action_probabilities, ensure_ascii=True),
+                    "model_outputs": json.dumps(sample.model_outputs, ensure_ascii=True),
+                    "features": json.dumps(sample.features, ensure_ascii=True),
+                    "raw_state": json.dumps(sample.raw_state, ensure_ascii=True),
                     "board": card_list_to_str(result.board),
                     "showdown": result.showdown,
                 }

@@ -50,24 +50,31 @@
           </div>
         </div>
 
-        <div class="table-visual">
-          <div class="felt-glow"></div>
-          <div class="table-ring"></div>
-          <div id="community-cards" class="community-cards"></div>
-          <div class="table-center">
-            <span class="label">Current Pot</span>
-            <strong id="table-pot">0 BB</strong>
-            <span id="winner-banner" class="winner-banner"></span>
-          </div>
+        <div class="table-scroll">
+          <div class="table-visual">
+            <div class="felt-glow"></div>
+            <div class="table-ring"></div>
 
-          <article class="seat seat-utg" data-seat="UTG"></article>
-          <article class="seat seat-utg1" data-seat="UTG+1"></article>
-          <article class="seat seat-mp" data-seat="MP"></article>
-          <article class="seat seat-hj" data-seat="HJ"></article>
-          <article class="seat seat-co" data-seat="CO"></article>
-          <article class="seat seat-btn" data-seat="BTN"></article>
-          <article class="seat seat-sb" data-seat="SB"></article>
-          <article class="seat seat-bb" data-seat="BB"></article>
+            <div class="table-board">
+              <span class="board-label">Board</span>
+              <div id="community-cards" class="community-cards"></div>
+            </div>
+
+            <div class="table-center">
+              <span class="label">Current Pot</span>
+              <strong id="table-pot">0 BB</strong>
+              <span id="winner-banner" class="winner-banner"></span>
+            </div>
+
+            <article class="seat seat-utg" data-seat="UTG"></article>
+            <article class="seat seat-utg1" data-seat="UTG+1"></article>
+            <article class="seat seat-mp" data-seat="MP"></article>
+            <article class="seat seat-hj" data-seat="HJ"></article>
+            <article class="seat seat-co" data-seat="CO"></article>
+            <article class="seat seat-btn" data-seat="BTN"></article>
+            <article class="seat seat-sb" data-seat="SB"></article>
+            <article class="seat seat-bb" data-seat="BB"></article>
+          </div>
         </div>
       </section>
 
@@ -110,6 +117,48 @@
         </section>
       </section>
     </main>
+
+    <section class="panel chat-panel">
+      <div class="section-head chat-head">
+        <div>
+          <p class="eyebrow">Hand Chat</p>
+          <h3>Poker Copilot</h3>
+          <p class="subtle chat-subtitle">A chat layer for discussing the current hand, line selection, sizing, and style implications.</p>
+        </div>
+        <div class="chat-status-stack">
+          <span id="chat-status-pill" class="seed-pill">Chat loading...</span>
+          <span id="chat-model-pill" class="seed-pill muted-pill">Model --</span>
+        </div>
+      </div>
+
+      <div class="chat-toolbar">
+        <label class="chat-toggle">
+          <input id="chat-include-context" type="checkbox" checked>
+          <span>Include current hand context</span>
+        </label>
+        <div id="chat-context-summary" class="chat-context-summary">No hand context loaded yet.</div>
+        <button id="chat-clear" class="ghost-button" type="button">Clear Chat</button>
+      </div>
+
+      <div id="chat-messages" class="chat-messages"></div>
+
+      <div class="chat-suggestions">
+        <button class="chat-suggestion" data-prompt="Walk me through this line street by street.">Street-by-street</button>
+        <button class="chat-suggestion" data-prompt="What ranges should keep continuing here?">Ranges</button>
+        <button class="chat-suggestion" data-prompt="Is this a value bet, bluff, or check candidate?">Value or bluff</button>
+        <button class="chat-suggestion" data-prompt="How should this change for a tighter style profile?">Style adjustment</button>
+      </div>
+
+      <form id="chat-form" class="chat-form">
+        <label class="chat-input-wrap" for="chat-input">
+          <textarea id="chat-input" rows="4" placeholder="Ask about the current hand, range pressure, board texture, or sizing..." spellcheck="true"></textarea>
+        </label>
+        <div class="chat-actions">
+          <span id="chat-feedback" class="subtle">Send a message to start the discussion.</span>
+          <button id="chat-send" class="primary-button" type="submit">Send</button>
+        </div>
+      </form>
+    </section>
   </div>
 
   <script src="app.js"></script>

@@ -16,6 +16,14 @@ const state = {
   stepIndex: 0,
   timer: null,
   speed: 900,
+  chat: {
+    configured: false,
+    model: "",
+    provider: "",
+    sending: false,
+    includeContext: true,
+    messages: [],
+  },
 };
 
 const elements = {
@@ -36,6 +44,17 @@ const elements = {
   actionLog: document.getElementById("action-log"),
   summaryGrid: document.getElementById("summary-grid"),
   seedPill: document.getElementById("seed-pill"),
+  chatMessages: document.getElementById("chat-messages"),
+  chatForm: document.getElementById("chat-form"),
+  chatInput: document.getElementById("chat-input"),
+  chatSend: document.getElementById("chat-send"),
+  chatClear: document.getElementById("chat-clear"),
+  chatFeedback: document.getElementById("chat-feedback"),
+  chatIncludeContext: document.getElementById("chat-include-context"),
+  chatStatusPill: document.getElementById("chat-status-pill"),
+  chatModelPill: document.getElementById("chat-model-pill"),
+  chatContextSummary: document.getElementById("chat-context-summary"),
+  chatSuggestions: Array.from(document.querySelectorAll(".chat-suggestion")),
 };
 
 function formatBB(value) {
@@ -44,6 +63,22 @@ function formatBB(value) {
 
 function streetLabel(value) {
   return value ? value.charAt(0).toUpperCase() + value.slice(1) : "Preflop";
+}
+
+function titleCaseToken(value) {
+  if (!value) return "Waiting";
+  return String(value)
+    .replaceAll("_", " ")
+    .replace(/\b\w/g, (char) => char.toUpperCase());
+}
+
+function escapeHtml(value) {
+  return String(value)
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;")
+    .replaceAll("'", "&#39;");
 }
 
 function cardMarkup(card) {
@@ -62,6 +97,29 @@ function renderBoard(cards) {
   elements.communityCards.innerHTML = filled + placeholders;
 }
 
+function describeEvent(event, snapshot) {
+  if (event.kind === "hand_start") {
+    return "Deck shuffled and blinds are ready.";
+  }
+  if (event.kind === "blind_post" && event.action) {
+    return `${event.action.player_name} posts ${formatBB(event.action.amount)}.`;
+  }
+  if (event.kind === "board_reveal") {
+    return snapshot.board.length ? `Board now shows ${snapshot.board.join(" ")}.` : "Board is waiting to be dealt.";
+  }
+  if (event.kind === "showdown") {
+    return "Hole cards are tabled for showdown.";
+  }
+  if (event.kind === "payout") {
+    return snapshot.winners.length ? `${snapshot.winners.join(", ")} collect the pot.` : "Pot has been awarded.";
+  }
+  if (event.action) {
+    const amount = event.action.amount > 0 ? ` ${formatBB(event.action.amount)}` : "";
+    return `${event.action.player_name} chooses ${titleCaseToken(event.action.action)}${amount}.`;
+  }
+  return snapshot.acting_player ? `${snapshot.acting_player} is the focus of this step.` : "State transition only.";
+}
+
 function renderSeats(snapshot) {
   snapshot.players.forEach((player) => {
     const node = seatElement(player.position);
@@ -72,18 +130,29 @@ function renderSeats(snapshot) {
     if (folded) classes.push("folded");
     if (winner) classes.push("winner");
     if (snapshot.acting_player === player.name) classes.push("acting");
+    const statusText = folded ? "Folded" : titleCaseToken(player.last_action || player.status || "waiting");
+    const secondaryText = player.street_bet > 0
+      ? `Street ${formatBB(player.street_bet)}`
+      : player.total_committed > 0
+        ? `Committed ${formatBB(player.total_committed)}`
+        : "Fresh stack";
+    const cards = (player.hole_cards || []).map(cardMarkup).join("");
     node.className = classes.join(" ").trim();
     node.innerHTML = `
       <div class="seat-top">
         <span class="seat-position">${player.position}</span>
         <span class="seat-profile">${player.profile_name}</span>
       </div>
-      <strong>${player.name}</strong>
-      <span class="seat-stack">${formatBB(player.stack)}</span>
-      <div class="hole-cards">${player.hole_cards.map(cardMarkup).join("")}</div>
+      <div class="seat-main">
+        <strong class="seat-name">${player.name}</strong>
+        <span class="seat-stack">${formatBB(player.stack)}</span>
+      </div>
+      <div class="hole-cards">
+        ${cards}
+      </div>
       <div class="seat-meta">
-        <span>${player.last_action || "waiting"}</span>
-        <span>${player.street_bet > 0 ? `Street ${formatBB(player.street_bet)}` : ""}</span>
+        <span>${statusText}</span>
+        <span>${secondaryText}</span>
       </div>
     `;
   });
@@ -93,6 +162,7 @@ function renderSummary(snapshot) {
   const activeCount = snapshot.players.filter((player) => player.in_hand).length;
   const foldedCount = snapshot.players.length - activeCount;
   const chipLeader = [...snapshot.players].sort((a, b) => b.stack - a.stack)[0];
+  const focusName = snapshot.acting_player || (snapshot.winners.length ? snapshot.winners.join(", ") : "Table state");
   elements.summaryGrid.innerHTML = `
     <article class="summary-card">
       <span class="label">Active</span>
@@ -103,6 +173,11 @@ function renderSummary(snapshot) {
       <span class="label">Chip Leader</span>
       <strong>${chipLeader.name}</strong>
       <span class="subtle">${formatBB(chipLeader.stack)}</span>
+    </article>
+    <article class="summary-card">
+      <span class="label">Focus</span>
+      <strong>${focusName}</strong>
+      <span class="subtle">${titleCaseToken(snapshot.acting_player ? "acting_now" : "state_frame")}</span>
     </article>
     <article class="summary-card">
       <span class="label">Winners</span>
@@ -119,10 +194,146 @@ function renderLog() {
       <span class="log-index">${index + 1}</span>
       <div>
         <strong>${event.label}</strong>
-        <span>${streetLabel(event.street)} / ${event.kind}</span>
+        <span>${streetLabel(event.street)} / ${titleCaseToken(event.kind)}</span>
       </div>
     </li>
   `).join("");
+}
+
+function currentHandContext() {
+  if (!state.replay) return null;
+  const event = state.replay.events[state.stepIndex];
+  const snapshot = event.snapshot;
+  return {
+    seed: state.seed,
+    headline: snapshot.headline,
+    street: snapshot.street,
+    pot_bb: Number(snapshot.pot),
+    event_label: event.label,
+    event_kind: event.kind,
+    acting_player: snapshot.acting_player,
+    board: snapshot.board,
+    winners: snapshot.winners,
+    players: snapshot.players.map((player) => ({
+      name: player.name,
+      position: player.position,
+      profile_name: player.profile_name,
+      stack_bb: Number(player.stack),
+      in_hand: Boolean(player.in_hand),
+      last_action: player.last_action || player.status || "waiting",
+      total_committed_bb: Number(player.total_committed || 0),
+      street_bet_bb: Number(player.street_bet || 0),
+      hole_cards: player.hole_cards || [],
+    })),
+    recent_actions: state.replay.events
+      .slice(Math.max(0, state.stepIndex - 5), state.stepIndex + 1)
+      .map((item) => item.label),
+  };
+}
+
+function contextSummaryText() {
+  const context = currentHandContext();
+  if (!context) return "No hand context loaded yet.";
+  const board = context.board.length ? context.board.join(" ") : "No board yet";
+  const acting = context.acting_player || "Table state";
+  return `Seed ${context.seed} · ${streetLabel(context.street)} · Pot ${formatBB(context.pot_bb)} · ${acting} · ${board}`;
+}
+
+function resetChat() {
+  state.chat.messages = [
+    {
+      role: "assistant",
+      content: "I’m ready to discuss this hand. Ask about ranges, line selection, sizing, or how a different style profile would approach the spot.",
+    },
+  ];
+  renderChat();
+}
+
+function renderChatStatus() {
+  const configured = state.chat.configured;
+  elements.chatStatusPill.textContent = configured ? "Chat connected" : "Chat not configured";
+  elements.chatStatusPill.classList.toggle("status-live", configured);
+  elements.chatStatusPill.classList.toggle("status-muted", !configured);
+  elements.chatModelPill.textContent = state.chat.model ? `Model ${state.chat.model}` : "Model --";
+}
+
+function renderChat() {
+  elements.chatMessages.innerHTML = state.chat.messages.map((message) => `
+    <article class="chat-message ${message.role}">
+      <div class="chat-avatar">${message.role === "assistant" ? "AI" : "You"}</div>
+      <div class="chat-bubble">
+        <span class="chat-role">${message.role === "assistant" ? "PKclaw Copilot" : "You"}</span>
+        <div class="chat-content">${escapeHtml(message.content).replaceAll("\n", "<br>")}</div>
+      </div>
+    </article>
+  `).join("");
+  elements.chatMessages.scrollTop = elements.chatMessages.scrollHeight;
+  elements.chatContextSummary.textContent = contextSummaryText();
+  renderChatStatus();
+  if (state.chat.sending) {
+    elements.chatFeedback.textContent = "Thinking through the hand...";
+  } else if (state.chat.configured) {
+    elements.chatFeedback.textContent = "Chat is ready. Current hand context can be attached automatically.";
+  } else {
+    elements.chatFeedback.textContent = "Configure the chat backend env vars, or use mock mode for local wiring checks.";
+  }
+}
+
+async function loadChatStatus() {
+  try {
+    const response = await fetch(`/api/chat/status?t=${Date.now()}`, { cache: "no-store" });
+    const payload = await response.json();
+    state.chat.configured = Boolean(payload.configured);
+    state.chat.model = payload.model || "";
+    state.chat.provider = payload.provider || "";
+    renderChat();
+  } catch (error) {
+    state.chat.configured = false;
+    state.chat.model = "";
+    state.chat.provider = "";
+    elements.chatFeedback.textContent = `Chat status unavailable: ${error}`;
+    renderChat();
+  }
+}
+
+async function sendChatMessage(promptText) {
+  const content = (promptText ?? elements.chatInput.value).trim();
+  if (!content || state.chat.sending) return;
+
+  state.chat.messages.push({ role: "user", content });
+  state.chat.sending = true;
+  renderChat();
+  elements.chatInput.value = "";
+
+  try {
+    const response = await fetch("/api/chat", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        messages: state.chat.messages,
+        hand_context: state.chat.includeContext ? currentHandContext() : null,
+      }),
+    });
+    const payload = await response.json();
+    if (!response.ok) {
+      throw new Error(payload.error || "Chat request failed.");
+    }
+    state.chat.configured = Boolean(payload.status?.configured);
+    state.chat.model = payload.reply?.model || payload.status?.model || "";
+    state.chat.provider = payload.status?.provider || state.chat.provider;
+    state.chat.messages.push({
+      role: "assistant",
+      content: payload.reply?.content || "The chat backend returned an empty response.",
+    });
+  } catch (error) {
+    state.chat.messages.push({
+      role: "assistant",
+      content: `Chat request failed: ${error}`,
+    });
+  } finally {
+    state.chat.sending = false;
+    renderChat();
+  }
 }
 
 function renderStep() {
@@ -135,13 +346,14 @@ function renderStep() {
   elements.tablePot.textContent = formatBB(snapshot.pot);
   elements.stepLabel.textContent = `${state.stepIndex + 1} / ${state.replay.events.length}`;
   elements.actionLabel.textContent = event.label;
-  elements.actionKind.textContent = event.kind;
-  elements.actionDetail.textContent = snapshot.acting_player ? `${snapshot.acting_player} is the focus of this step.` : "State transition only.";
+  elements.actionKind.textContent = titleCaseToken(event.kind);
+  elements.actionDetail.textContent = describeEvent(event, snapshot);
   elements.winnerBanner.textContent = snapshot.winners.length ? `Winner: ${snapshot.winners.join(", ")}` : "";
   renderBoard(snapshot.board);
   renderSeats(snapshot);
   renderSummary(snapshot);
   renderLog();
+  elements.chatContextSummary.textContent = contextSummaryText();
   elements.togglePlay.textContent = state.stepIndex >= state.replay.events.length - 1 ? "Replay" : state.timer ? "Pause" : "Play";
 }
 
@@ -214,8 +426,32 @@ elements.speedSelect.addEventListener("change", (event) => {
     playFromCurrentStep();
   }
 });
+elements.chatIncludeContext.addEventListener("change", (event) => {
+  state.chat.includeContext = Boolean(event.target.checked);
+  renderChat();
+});
+elements.chatClear.addEventListener("click", () => {
+  resetChat();
+});
+elements.chatForm.addEventListener("submit", async (event) => {
+  event.preventDefault();
+  await sendChatMessage();
+});
+elements.chatInput.addEventListener("keydown", async (event) => {
+  if (event.key === "Enter" && !event.shiftKey) {
+    event.preventDefault();
+    await sendChatMessage();
+  }
+});
+elements.chatSuggestions.forEach((button) => {
+  button.addEventListener("click", async () => {
+    await sendChatMessage(button.dataset.prompt || "");
+  });
+});
 
-loadReplay().catch((error) => {
+resetChat();
+
+Promise.all([loadReplay(), loadChatStatus()]).catch((error) => {
   elements.headline.textContent = "Failed to load hand replay";
   elements.actionDetail.textContent = String(error);
 });

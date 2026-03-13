@@ -78,6 +78,25 @@ class GameState:
 class DecisionResult:
     action: ActionType | Literal["check"]
     size: float | None
+    size_bucket: str | None
     action_probabilities: dict[str, float]
     reason_tags: list[str]
     debug_notes: list[str] = field(default_factory=list)
+    model_outputs: dict[str, float] = field(default_factory=dict)
+
+
+@dataclass(slots=True)
+class DecisionSample:
+    street: Street
+    player_name: str
+    position: Position
+    profile_name: str
+    action: ActionType
+    committed_amount: float = 0.0
+    selected_size: float | None = None
+    size_bucket: str | None = None
+    raw_state: dict[str, object] = field(default_factory=dict)
+    features: dict[str, float] = field(default_factory=dict)
+    action_probabilities: dict[str, float] = field(default_factory=dict)
+    reason_tags: list[str] = field(default_factory=list)
+    model_outputs: dict[str, float] = field(default_factory=dict)
