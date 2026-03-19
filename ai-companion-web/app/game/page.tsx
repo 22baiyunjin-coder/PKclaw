@@ -1,9 +1,35 @@
-import { CompanionDesk } from "@/components/CompanionDesk";
+import { PokerTable } from "@/components/poker-table"
+import { SiteHeader } from "@/components/layout/site-header"
+import { createClient } from "@/utils/supabase/server"
+import { getPersonas } from "@/app/actions/personas"
+import { getServerLocale } from "@/lib/i18n-server"
+import type { Viewport } from "next"
 
-export default function GamePage() {
+export const viewport: Viewport = {
+  width: 'device-width',
+  initialScale: 1,
+  maximumScale: 1,
+  userScalable: false,
+  viewportFit: 'cover',
+}
+
+export default async function GamePage() {
+  const locale = await getServerLocale()
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+
+  let initialProfile = null
+  if (user) {
+    const { data } = await supabase.from('profiles').select('*').eq('id', user.id).single()
+    initialProfile = data
+  }
+
+  // Fetch personas on server side to ensure they are available immediately
+  const personas = await getPersonas()
+
   return (
-    <main className="relative min-h-screen overflow-hidden bg-[radial-gradient(circle_at_top,rgba(245,158,11,0.12),transparent_28%),linear-gradient(180deg,#020617_0%,#07111d_38%,#02040a_100%)] px-4 py-5 sm:px-6 lg:px-8">
-      <CompanionDesk />
-    </main>
-  );
+    <div className="fixed inset-0 flex flex-col bg-black overflow-hidden">
+      <PokerTable initialProfile={initialProfile} initialPersonas={personas} initialLocale={locale} />
+    </div>
+  )
 }

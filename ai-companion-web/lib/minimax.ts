@@ -1,41 +1,39 @@
-import { generateMockReply } from "@/lib/mockReply";
-import { withPersonaSystemMessage } from "@/lib/persona";
-import type { ChatMessagePayload, ModelReply } from "@/types/chat";
+import { withChatSystemMessage } from "@/lib/chat-persona"
+import { generateMockChatReply } from "@/lib/mock-chat-reply"
+import type { ChatHandContext, ChatMessagePayload, ModelReply } from "@/types/chat"
 
-const DEFAULT_MINIMAX_BASE_URL = "https://api.minimaxi.com/v1";
-const DEFAULT_MINIMAX_MODEL = "MiniMax-M2.5";
-const MAX_CONTEXT_MESSAGES = 14;
+const DEFAULT_MINIMAX_BASE_URL = "https://api.minimaxi.com/v1"
+const DEFAULT_MINIMAX_MODEL = "MiniMax-M2.5"
+const MAX_CONTEXT_MESSAGES = 14
 
-function normalizeBaseUrl(): string {
-  const rawBaseUrl = process.env.MINIMAX_BASE_URL?.trim();
-  return (rawBaseUrl || DEFAULT_MINIMAX_BASE_URL).replace(/\/$/, "");
+function normalizeBaseUrl() {
+  const rawBaseUrl = process.env.MINIMAX_BASE_URL?.trim()
+  return (rawBaseUrl || DEFAULT_MINIMAX_BASE_URL).replace(/\/$/, "")
 }
 
-function getModelName(): string {
-  return process.env.MINIMAX_MODEL?.trim() || DEFAULT_MINIMAX_MODEL;
+function getModelName() {
+  return process.env.MINIMAX_MODEL?.trim() || DEFAULT_MINIMAX_MODEL
 }
 
-function getApiKey(): string {
-  return process.env.MINIMAX_API_KEY?.trim() || "";
+function getApiKey() {
+  return process.env.MINIMAX_API_KEY?.trim() || ""
 }
 
-function compactConversation(messages: ChatMessagePayload[]): ChatMessagePayload[] {
-  return messages
-    .filter((message) => message.role !== "system")
-    .slice(-MAX_CONTEXT_MESSAGES);
+function compactConversation(messages: ChatMessagePayload[]) {
+  return messages.filter((message) => message.role !== "system").slice(-MAX_CONTEXT_MESSAGES)
 }
 
-function extractTextContent(payload: unknown): string {
+function extractTextContent(payload: unknown) {
   if (
     !payload ||
     typeof payload !== "object" ||
     !("choices" in payload) ||
     !Array.isArray(payload.choices)
   ) {
-    return "";
+    return ""
   }
 
-  const firstChoice = payload.choices[0];
+  const firstChoice = payload.choices[0]
 
   if (
     !firstChoice ||
@@ -45,30 +43,30 @@ function extractTextContent(payload: unknown): string {
     typeof firstChoice.message !== "object" ||
     !("content" in firstChoice.message)
   ) {
-    return "";
+    return ""
   }
 
   const { content } = firstChoice.message as {
-    content?: string | Array<{ text?: string }>;
-  };
+    content?: string | Array<{ text?: string }>
+  }
 
   if (typeof content === "string") {
-    return content.trim();
+    return content.trim()
   }
 
   if (Array.isArray(content)) {
     return content
       .map((part) => (typeof part?.text === "string" ? part.text : ""))
       .join("\n")
-      .trim();
+      .trim()
   }
 
-  return "";
+  return ""
 }
 
 async function requestMinimax(
   messages: ChatMessagePayload[],
-  handContext?: Record<string, unknown> | null,
+  handContext?: ChatHandContext | null,
 ): Promise<ModelReply> {
   const response = await fetch(`${normalizeBaseUrl()}/chat/completions`, {
     method: "POST",
@@ -79,46 +77,38 @@ async function requestMinimax(
     body: JSON.stringify({
       model: getModelName(),
       temperature: 0.72,
-      messages: withPersonaSystemMessage(
-        compactConversation(messages),
-        handContext,
-      ),
+      messages: withChatSystemMessage(compactConversation(messages), handContext),
     }),
-  });
+  })
 
   if (!response.ok) {
-    const detail = await response.text();
-    throw new Error(
-      `MiniMax request failed with status ${response.status}. ${detail.slice(
-        0,
-        400,
-      )}`,
-    );
+    const detail = await response.text()
+    throw new Error(`MiniMax request failed with status ${response.status}. ${detail.slice(0, 400)}`)
   }
 
-  const payload = (await response.json()) as unknown;
-  const content = extractTextContent(payload);
+  const payload = (await response.json()) as unknown
+  const content = extractTextContent(payload)
 
   if (!content) {
-    throw new Error("MiniMax returned an empty assistant reply.");
+    throw new Error("MiniMax returned an empty assistant reply.")
   }
 
   return {
     content,
     provider: "minimax",
-  };
+  }
 }
 
 export async function generateChatReply(
   messages: ChatMessagePayload[],
-  handContext?: Record<string, unknown> | null,
+  handContext?: ChatHandContext | null,
 ): Promise<ModelReply> {
   if (!getApiKey()) {
     return {
-      content: generateMockReply(messages, handContext),
+      content: generateMockChatReply(messages, handContext),
       provider: "mock",
-    };
+    }
   }
 
-  return requestMinimax(messages, handContext);
+  return requestMinimax(messages, handContext)
 }
