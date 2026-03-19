@@ -21,17 +21,17 @@ export function MessageBubble({
   return (
     <article className={`flex ${isAssistant ? "justify-start" : "justify-end"}`}>
       <div
-        className={`max-w-[85%] rounded-[26px] px-4 py-3 shadow-lg shadow-slate-950/20 sm:max-w-[78%] ${
+        className={`max-w-[90%] rounded-[28px] px-4 py-3 shadow-[0_18px_40px_rgba(2,6,23,0.28)] sm:max-w-[82%] ${
           isAssistant
-            ? "border border-white/10 bg-white/10 text-slate-100"
-            : "bg-gradient-to-br from-cyan-400 to-sky-500 text-slate-950"
+            ? "border border-white/10 bg-white/[0.08] text-slate-100"
+            : "bg-gradient-to-br from-amber-400 to-orange-500 text-black"
         }`}
       >
         <div className="mb-2 flex items-center gap-2 text-[0.72rem] uppercase tracking-[0.24em]">
-          <span className={isAssistant ? "text-cyan-200" : "text-slate-950/70"}>
+          <span className={isAssistant ? "text-amber-200" : "text-black/70"}>
             {isAssistant ? companionName : "You"}
           </span>
-          <span className={isAssistant ? "text-slate-500" : "text-slate-900/50"}>
+          <span className={isAssistant ? "text-slate-500" : "text-black/45"}>
             {formatTime(message.createdAt)}
           </span>
         </div>

@@ -33,6 +33,8 @@ def _state(
     max_raise: float,
     history: list[ActionRecord],
     legal_actions: LegalActions,
+    active_players: list[str] | None = None,
+    players_to_act_behind: int = 1,
 ) -> GameState:
     return GameState(
         table_size=8,
@@ -50,9 +52,9 @@ def _state(
         min_raise=min_raise,
         max_raise=max_raise,
         action_history=history,
-        active_players=["Hero", "Villain1", "Villain2"],
+        active_players=active_players[:] if active_players is not None else ["Hero", "Villain1", "Villain2"],
         style_profile_name="",
-        players_to_act_behind=1,
+        players_to_act_behind=players_to_act_behind,
         is_preflop_aggressor=any(record.player_name == "Hero" and record.action in {"bet", "raise"} for record in history if record.street == "preflop"),
         facing_bet=to_call > 0,
         facing_raise=any(record.action == "raise" for record in history if record.street == street),
@@ -80,27 +82,27 @@ def get_demo_scenarios() -> list[DemoScenario]:
         DemoScenario(
             "flop c-bet spot",
             PRESET_PROFILES["balanced_reg"],
-            _state(street="flop", position="CO", hole="Ac Qc", board="Qh 7d 2s", pot=6.5, to_call=0.0, min_raise=2.0, max_raise=100.0, history=[ActionRecord("preflop", "Hero", "CO", "raise", 2.5)], legal_actions=LegalActions(can_fold=False, can_check=True, can_bet=True)),
+            _state(street="flop", position="CO", hole="Ac Qc", board="Qh 7d 2s", pot=6.5, to_call=0.0, min_raise=2.0, max_raise=100.0, history=[ActionRecord("preflop", "Hero", "CO", "raise", 2.5)], legal_actions=LegalActions(can_fold=False, can_check=True, can_bet=True), active_players=["Hero", "Villain1"], players_to_act_behind=0),
         ),
         DemoScenario(
             "flop draw spot",
             PRESET_PROFILES["lag"],
-            _state(street="flop", position="BTN", hole="Kd Qd", board="Jh 8d 3c", pot=8.0, to_call=3.0, min_raise=9.0, max_raise=100.0, history=[ActionRecord("flop", "Villain", "BB", "bet", 3.0)], legal_actions=LegalActions(can_fold=True, can_call=True, can_raise=True)),
+            _state(street="flop", position="BTN", hole="Kd Qd", board="Jh 8d 3c", pot=8.0, to_call=3.0, min_raise=9.0, max_raise=100.0, history=[ActionRecord("flop", "Villain", "BB", "bet", 3.0)], legal_actions=LegalActions(can_fold=True, can_call=True, can_raise=True), active_players=["Hero", "Villain1"], players_to_act_behind=0),
         ),
         DemoScenario(
             "turn barrel spot",
             PRESET_PROFILES["pressure_reg"],
-            _state(street="turn", position="BTN", hole="Kd Qd", board="Jh 8d 3c Td", pot=18.0, to_call=0.0, min_raise=4.0, max_raise=100.0, history=[ActionRecord("flop", "Hero", "BTN", "bet", 3.0)], legal_actions=LegalActions(can_fold=False, can_check=True, can_bet=True)),
+            _state(street="turn", position="BTN", hole="Kd Qd", board="Jh 8d 3c Td", pot=18.0, to_call=0.0, min_raise=4.0, max_raise=100.0, history=[ActionRecord("flop", "Hero", "BTN", "bet", 3.0)], legal_actions=LegalActions(can_fold=False, can_check=True, can_bet=True), active_players=["Hero", "Villain1"], players_to_act_behind=0),
         ),
         DemoScenario(
             "river value bet spot",
             PRESET_PROFILES["tag"],
-            _state(street="river", position="BTN", hole="Ah Qh", board="Ad 9s 4c 4d 2h", pot=24.0, to_call=0.0, min_raise=6.0, max_raise=100.0, history=[ActionRecord("turn", "Hero", "BTN", "bet", 8.0)], legal_actions=LegalActions(can_fold=False, can_check=True, can_bet=True)),
+            _state(street="river", position="BTN", hole="Ah Qh", board="Ad 9s 4c 4d 2h", pot=24.0, to_call=0.0, min_raise=6.0, max_raise=100.0, history=[ActionRecord("turn", "Hero", "BTN", "bet", 8.0)], legal_actions=LegalActions(can_fold=False, can_check=True, can_bet=True), active_players=["Hero", "Villain1"], players_to_act_behind=0),
         ),
         DemoScenario(
             "river bluff-catch spot",
             PRESET_PROFILES["calling_station"],
-            _state(street="river", position="BB", hole="Ad Jc", board="Ks 9h 4c 4d 2s", pot=31.0, to_call=11.0, min_raise=24.0, max_raise=100.0, history=[ActionRecord("river", "Villain", "BTN", "bet", 11.0)], legal_actions=LegalActions(can_fold=True, can_call=True, can_raise=True)),
+            _state(street="river", position="BB", hole="Ad Jc", board="Ks 9h 4c 4d 2s", pot=31.0, to_call=11.0, min_raise=24.0, max_raise=100.0, history=[ActionRecord("river", "Villain", "BTN", "bet", 11.0)], legal_actions=LegalActions(can_fold=True, can_call=True, can_raise=True), active_players=["Hero", "Villain1"], players_to_act_behind=0),
         ),
         DemoScenario(
             "blind defense spot",

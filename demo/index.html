@@ -3,162 +3,220 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>PKclaw Table Replay</title>
+  <title>PKclaw Main Interface</title>
   <link rel="stylesheet" href="styles.css">
 </head>
 <body>
   <div class="app-shell">
     <header class="topbar">
-      <div>
-        <p class="eyebrow">PKclaw / Visual Table Harness</p>
-        <h1>8-Bot Table Replay</h1>
+      <div class="title-block">
+        <p class="eyebrow">PKclaw / Main Interface v1</p>
+        <h1>Configurable Poker Bot</h1>
+        <p class="hero-copy">Configure the bot on the left, inspect the live decision in the center, and ask the bot to explain itself on the right.</p>
       </div>
-      <div class="controls-inline">
-        <button id="deal-hand" class="primary-button" type="button">Deal New Hand</button>
-        <button id="toggle-play" class="ghost-button" type="button">Play</button>
-        <button id="next-step" class="ghost-button" type="button">Next Step</button>
-        <label class="speed-control" for="speed-select">Speed
-          <select id="speed-select">
-            <option value="1400">Slow</option>
-            <option value="900" selected>Normal</option>
-            <option value="500">Fast</option>
-          </select>
-        </label>
-      </div>
+      <nav class="top-actions">
+        <a class="ghost-button" href="/demo/training.html">Training Replay</a>
+        <button id="refresh-state" class="primary-button" type="button">Refresh Decision</button>
+      </nav>
     </header>
 
-    <main class="layout">
-      <section class="table-stage panel">
-        <div class="status-strip">
+    <main class="product-grid">
+      <aside class="panel left-panel">
+        <div class="section-head">
           <div>
-            <p class="eyebrow">Hand Status</p>
-            <h2 id="headline">Loading hand...</h2>
+            <p class="eyebrow">Bot Control</p>
+            <h2>Current Bot</h2>
           </div>
-          <div class="status-metrics">
-            <article class="metric-card">
-              <span class="metric-label">Street</span>
-              <strong id="street-label">Preflop</strong>
-            </article>
-            <article class="metric-card">
-              <span class="metric-label">Pot</span>
-              <strong id="pot-label">0 BB</strong>
-            </article>
-            <article class="metric-card">
-              <span class="metric-label">Step</span>
-              <strong id="step-label">0 / 0</strong>
-            </article>
+          <span id="bot-mode-pill" class="status-pill">Preset</span>
+        </div>
+
+        <section class="control-group">
+          <label class="field">
+            <span class="field-label">Bot Name</span>
+            <input id="bot-name" type="text" placeholder="Balanced Reg">
+          </label>
+        </section>
+
+        <section class="control-group">
+          <span class="field-label">Bot Mode</span>
+          <div class="segmented-control">
+            <label class="segment">
+              <input id="mode-preset" name="bot-mode" type="radio" value="preset" checked>
+              <span>Standard Bot</span>
+            </label>
+            <label class="segment">
+              <input id="mode-custom" name="bot-mode" type="radio" value="custom">
+              <span>Custom Bot</span>
+            </label>
+          </div>
+        </section>
+
+        <section class="control-group">
+          <label class="field">
+            <span class="field-label">Preset</span>
+            <select id="preset-select"></select>
+          </label>
+          <label class="field">
+            <span class="field-label">Spot</span>
+            <select id="scenario-select"></select>
+          </label>
+        </section>
+
+        <section class="control-group">
+          <div class="section-head mini-head">
+            <div>
+              <p class="eyebrow">Profile</p>
+              <h3>Style Parameters</h3>
+            </div>
+            <button id="reset-profile" class="ghost-button" type="button">Reset to Preset</button>
+          </div>
+          <div id="style-sliders" class="slider-grid"></div>
+        </section>
+
+        <section class="control-group future-card">
+          <div class="section-head mini-head">
+            <div>
+              <p class="eyebrow">Future Room</p>
+              <h3>Profile Library</h3>
+            </div>
+          </div>
+          <p class="subtle">Save / load custom personalities, user bot slots, and reusable postflop style packs will live here next.</p>
+          <div class="future-actions">
+            <button class="ghost-button" type="button" disabled>Save Profile</button>
+            <button class="ghost-button" type="button" disabled>Load Profile</button>
+          </div>
+        </section>
+      </aside>
+
+      <section class="panel center-panel">
+        <div class="section-head">
+          <div>
+            <p class="eyebrow">Current Decision</p>
+            <h2 id="scenario-title">Loading scenario...</h2>
+            <p id="scenario-copy" class="subtle">Waiting for the current poker state.</p>
+          </div>
+          <div class="status-cluster">
+            <span id="evaluator-pill" class="status-pill subtle-pill">Evaluator --</span>
+            <span id="policy-pill" class="status-pill subtle-pill">Policy --</span>
           </div>
         </div>
 
-        <div class="table-scroll">
-          <div class="table-visual">
-            <div class="felt-glow"></div>
-            <div class="table-ring"></div>
+        <div class="state-summary-grid">
+          <article class="summary-card">
+            <span class="label">Street</span>
+            <strong id="state-street">--</strong>
+            <span id="state-position" class="subtle">Position --</span>
+          </article>
+          <article class="summary-card">
+            <span class="label">Pot</span>
+            <strong id="state-pot">--</strong>
+            <span id="state-call" class="subtle">To call --</span>
+          </article>
+          <article class="summary-card">
+            <span class="label">Effective Stack</span>
+            <strong id="state-stack">--</strong>
+            <span id="state-legal" class="subtle">Legal actions --</span>
+          </article>
+        </div>
 
-            <div class="table-board">
-              <span class="board-label">Board</span>
-              <div id="community-cards" class="community-cards"></div>
+        <div class="cards-layout">
+          <article class="cards-card">
+            <span class="label">Hero Hand</span>
+            <div id="hero-cards" class="card-row"></div>
+          </article>
+          <article class="cards-card">
+            <span class="label">Board</span>
+            <div id="board-cards" class="card-row"></div>
+          </article>
+        </div>
+
+        <div class="decision-hero">
+          <div>
+            <p class="eyebrow">Chosen Action</p>
+            <div class="decision-main">
+              <strong id="decision-action">--</strong>
+              <span id="decision-size" class="decision-size">--</span>
             </div>
+            <p id="decision-bucket" class="subtle">Size bucket --</p>
+          </div>
+          <button id="analyze-hand" class="primary-button" type="button">Analyze Current Hand</button>
+        </div>
 
-            <div class="table-center">
-              <span class="label">Current Pot</span>
-              <strong id="table-pot">0 BB</strong>
-              <span id="winner-banner" class="winner-banner"></span>
+        <div class="insight-grid">
+          <article class="panel inset-panel">
+            <div class="section-head mini-head">
+              <div>
+                <p class="eyebrow">Evaluator</p>
+                <h3>Signal Summary</h3>
+              </div>
             </div>
+            <div class="metric-list">
+              <div class="metric-line"><span>Hand Bucket</span><strong id="eval-hand-bucket">--</strong></div>
+              <div class="metric-line"><span>Hand Score</span><strong id="eval-hand-score">--</strong></div>
+              <div class="metric-line"><span>Equity</span><strong id="eval-equity">--</strong></div>
+              <div class="metric-line"><span>Showdown Strength</span><strong id="eval-showdown">--</strong></div>
+              <div class="metric-line"><span>Board Texture</span><strong id="eval-board-texture">--</strong></div>
+            </div>
+            <div id="board-tags" class="tag-row"></div>
+          </article>
 
-            <article class="seat seat-utg" data-seat="UTG"></article>
-            <article class="seat seat-utg1" data-seat="UTG+1"></article>
-            <article class="seat seat-mp" data-seat="MP"></article>
-            <article class="seat seat-hj" data-seat="HJ"></article>
-            <article class="seat seat-co" data-seat="CO"></article>
-            <article class="seat seat-btn" data-seat="BTN"></article>
-            <article class="seat seat-sb" data-seat="SB"></article>
-            <article class="seat seat-bb" data-seat="BB"></article>
+          <article class="panel inset-panel">
+            <div class="section-head mini-head">
+              <div>
+                <p class="eyebrow">Policy</p>
+                <h3>Reasoning</h3>
+              </div>
+            </div>
+            <div id="reason-tags" class="tag-row"></div>
+            <ul id="policy-notes" class="notes-list"></ul>
+          </article>
+        </div>
+
+        <article class="panel inset-panel">
+          <div class="section-head mini-head">
+            <div>
+              <p class="eyebrow">Action Mix</p>
+              <h3>Probabilities</h3>
+            </div>
+          </div>
+          <div id="probability-list" class="probability-list"></div>
+        </article>
+      </section>
+
+      <aside class="panel right-panel">
+        <div class="section-head">
+          <div>
+            <p class="eyebrow">Ask The Bot</p>
+            <h2>Poker Copilot</h2>
+            <p class="subtle">This chat already knows the current state, style profile, evaluator outputs, and chosen action.</p>
+          </div>
+          <div class="status-cluster">
+            <span id="chat-status-pill" class="status-pill subtle-pill">Chat loading...</span>
+            <span id="chat-model-pill" class="status-pill subtle-pill">Model --</span>
           </div>
         </div>
-      </section>
 
-      <section class="sidebar">
-        <section class="panel info-panel">
-          <div class="section-head">
-            <div>
-              <p class="eyebrow">Replay</p>
-              <h3>Current Action</h3>
-            </div>
-            <span id="seed-pill" class="seed-pill">Seed --</span>
-          </div>
-          <div class="action-card">
-            <div class="action-main">
-              <strong id="action-label">Waiting...</strong>
-              <span id="action-kind" class="action-kind">hand_start</span>
-            </div>
-            <p id="action-detail" class="subtle">Preparing table state.</p>
-          </div>
-        </section>
+        <div id="quick-actions" class="quick-actions">
+          <button class="quick-action primary-ghost" type="button">Analyze Current Hand</button>
+        </div>
 
-        <section class="panel info-panel">
-          <div class="section-head">
-            <div>
-              <p class="eyebrow">Players</p>
-              <h3>Table Summary</h3>
-            </div>
-          </div>
-          <div id="summary-grid" class="summary-grid"></div>
-        </section>
+        <div id="chat-context-strip" class="context-strip">Context loading...</div>
+        <div id="chat-messages" class="chat-messages"></div>
 
-        <section class="panel log-panel">
-          <div class="section-head">
-            <div>
-              <p class="eyebrow">Action Log</p>
-              <h3>Every Step</h3>
+        <form id="chat-form" class="chat-form">
+          <label class="chat-input-wrap" for="chat-input">
+            <textarea id="chat-input" rows="4" placeholder="Ask why the bot chose this line, compare another preset, or paste a messy hand history for a quick read..." spellcheck="true"></textarea>
+          </label>
+          <div class="chat-actions">
+            <span id="chat-feedback" class="subtle">Ask about the current action, alternatives, or style comparisons.</span>
+            <div class="chat-buttons">
+              <button id="chat-clear" class="ghost-button" type="button">Clear</button>
+              <button id="chat-send" class="primary-button" type="submit">Send</button>
             </div>
           </div>
-          <ol id="action-log" class="action-log"></ol>
-        </section>
-      </section>
+        </form>
+      </aside>
     </main>
-
-    <section class="panel chat-panel">
-      <div class="section-head chat-head">
-        <div>
-          <p class="eyebrow">Hand Chat</p>
-          <h3>Poker Copilot</h3>
-          <p class="subtle chat-subtitle">A chat layer for discussing the current hand, line selection, sizing, and style implications.</p>
-        </div>
-        <div class="chat-status-stack">
-          <span id="chat-status-pill" class="seed-pill">Chat loading...</span>
-          <span id="chat-model-pill" class="seed-pill muted-pill">Model --</span>
-        </div>
-      </div>
-
-      <div class="chat-toolbar">
-        <label class="chat-toggle">
-          <input id="chat-include-context" type="checkbox" checked>
-          <span>Include current hand context</span>
-        </label>
-        <div id="chat-context-summary" class="chat-context-summary">No hand context loaded yet.</div>
-        <button id="chat-clear" class="ghost-button" type="button">Clear Chat</button>
-      </div>
-
-      <div id="chat-messages" class="chat-messages"></div>
-
-      <div class="chat-suggestions">
-        <button class="chat-suggestion" data-prompt="Walk me through this line street by street.">Street-by-street</button>
-        <button class="chat-suggestion" data-prompt="What ranges should keep continuing here?">Ranges</button>
-        <button class="chat-suggestion" data-prompt="Is this a value bet, bluff, or check candidate?">Value or bluff</button>
-        <button class="chat-suggestion" data-prompt="How should this change for a tighter style profile?">Style adjustment</button>
-      </div>
-
-      <form id="chat-form" class="chat-form">
-        <label class="chat-input-wrap" for="chat-input">
-          <textarea id="chat-input" rows="4" placeholder="Ask about the current hand, range pressure, board texture, or sizing..." spellcheck="true"></textarea>
-        </label>
-        <div class="chat-actions">
-          <span id="chat-feedback" class="subtle">Send a message to start the discussion.</span>
-          <button id="chat-send" class="primary-button" type="submit">Send</button>
-        </div>
-      </form>
-    </section>
   </div>
 
   <script src="app.js"></script>

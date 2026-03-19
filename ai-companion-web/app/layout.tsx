@@ -3,9 +3,9 @@ import type { Metadata } from "next";
 import "@/app/globals.css";
 
 export const metadata: Metadata = {
-  title: "PocketMuse | AI Companion MVP",
+  title: "PKmind | Poker Replay and Persona Studio",
   description:
-    "A first-pass desktop companion chat prototype powered by MiniMax or a local mock mode.",
+    "PKmind is a poker-first product prototype with a replay arena, persona workshop, marketplace flow, and MiniMax-ready chat layer.",
 };
 
 export default function RootLayout({

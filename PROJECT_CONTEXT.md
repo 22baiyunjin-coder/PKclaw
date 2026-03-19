@@ -6,8 +6,173 @@
 - Support local simulation, data generation, and a mature-looking demo UI.
 
 ## Current Progress
-- Local demo UI exists and can display configurable bot controls and simulation summary data.
-- The demo UI now also includes a ChatGPT-style hand discussion panel backed by a local `/api/chat` layer.
+- Preflop v2 repair phase has started.
+- New preflop-specific modules now exist:
+  - `pkbot/preflop_labeling.py`
+  - `pkbot/preflop_teacher_v2.py`
+  - `pkbot/preflop_validation.py`
+- `PreflopTeacherV2` is now wired into `pkbot/strategy/preflop_policy.py`.
+- Preflop context building now attaches explicit preflop spot labels through `pkbot/strategy/context_builder.py`.
+- Policy dataset export now uses explicit preflop spot labeling and records `action_context_subtype`, reducing the old preflop collapse problem in future exports.
+- A dedicated CLI flow now exists:
+  - `main.py validate-preflop-v2`
+  - it exports a preflop-only teacher dataset, a preflop spot report, and a preflop sanity report
+- Latest smoke validation artifacts now exist under:
+  - `outputs/preflop_v2_smoke3/preflop_teacher_v2_dataset.jsonl`
+  - `outputs/preflop_v2_smoke3/preflop_teacher_v2_dataset.csv`
+  - `outputs/preflop_v2_smoke3/preflop_spot_report.json`
+  - `outputs/preflop_v2_smoke3/preflop_sanity_report.json`
+- A longer fixed-seed preflop v2 validation run has now completed under:
+  - `outputs/preflop_v2_validation_2000/preflop_teacher_v2_dataset.jsonl`
+  - `outputs/preflop_v2_validation_2000/preflop_teacher_v2_dataset.csv`
+  - `outputs/preflop_v2_validation_2000/preflop_spot_report.json`
+  - `outputs/preflop_v2_validation_2000/preflop_sanity_report.json`
+- The longer run materially confirms that the old preflop collapse has been repaired:
+  - `unopened_preflop_open 6740`
+  - `late_position_steal 910`
+  - `facing_open 3463`
+  - `facing_3bet 1565`
+  - `blind_defense 3348`
+  - `squeeze_opportunity 676`
+  - `facing_squeeze 961`
+- Key coverage from the longer run is now real rather than only intended:
+  - `sb_first_in 54`
+  - `co_first_in 591`
+  - `btn_first_in 319`
+  - `bb_vs_late_open 322`
+  - `sb_vs_late_open 400`
+  - `vs_late_open 272`
+  - `opener_or_caller_facing_3bet 1011`
+- The long-run preflop sanity report currently emits no warnings.
+- `PreflopTeacherV2` is now the formal v2 preflop teacher source.
+- Broad preflop relabeling is no longer the active path.
+- The next targeted preflop calibration spot is explicitly recorded as:
+  - `opener_or_caller_facing_3bet`
+- Heads-up postflop v2 work has now started with dedicated modules:
+  - `pkbot/postflop_labeling.py`
+  - `pkbot/heads_up_postflop_teacher_v2.py`
+  - `pkbot/heads_up_postflop_validation.py`
+- The strategy layer now routes:
+  - `preflop` -> `PreflopTeacherV2`
+  - `heads-up postflop` -> `HeadsUpPostflopTeacherV2`
+  - `multiway postflop` -> existing multiway heuristic policies
+- Policy dataset tagging now uses explicit postflop spot labeling, so future heads-up postflop datasets do not rely on the older generic postflop tags.
+- A dedicated CLI flow now exists:
+  - `main.py validate-heads-up-postflop-v2`
+  - it exports a heads-up-only postflop teacher dataset, a spot report, and a sanity report
+- Initial heads-up postflop smoke validation artifacts now exist under:
+  - `outputs/heads_up_postflop_v2_smoke/heads_up_postflop_teacher_v2_dataset.jsonl`
+  - `outputs/heads_up_postflop_v2_smoke/heads_up_postflop_teacher_v2_dataset.csv`
+  - `outputs/heads_up_postflop_v2_smoke/heads_up_postflop_spot_report.json`
+  - `outputs/heads_up_postflop_v2_smoke/heads_up_postflop_sanity_report.json`
+- Initial heads-up postflop smoke summary:
+  - `729` heads-up postflop samples
+  - street coverage:
+    - `flop 320`
+    - `turn 235`
+    - `river 174`
+  - key spot coverage:
+    - `flop_cbet_opportunity 128`
+    - `flop_facing_cbet 57`
+    - `turn_barrel_opportunity 28`
+    - `turn_facing_barrel 45`
+    - `river_bluff_catch 41`
+  - current smoke sanity report emits no warnings
+- A longer fixed-seed heads-up postflop v2 validation run has now completed under:
+  - `outputs/heads_up_postflop_v2_validation_2000/heads_up_postflop_teacher_v2_dataset.jsonl`
+  - `outputs/heads_up_postflop_v2_validation_2000/heads_up_postflop_teacher_v2_dataset.csv`
+  - `outputs/heads_up_postflop_v2_validation_2000/heads_up_postflop_spot_report.json`
+  - `outputs/heads_up_postflop_v2_validation_2000/heads_up_postflop_sanity_report.json`
+- Long-run heads-up postflop v2 coverage:
+  - `4552` heads-up postflop samples
+  - `flop 2113`
+  - `turn 1459`
+  - `river 980`
+  - key spots:
+    - `flop_cbet_opportunity 827`
+    - `flop_facing_cbet 399`
+    - `flop_probe_or_delayed_cbet 562`
+    - `turn_barrel_opportunity 240`
+    - `turn_facing_barrel 279`
+    - `river_value_decision 115`
+    - `river_bluff_catch 226`
+    - `river_bluff_or_giveup 618`
+- Long-run heads-up postflop sanity summary:
+  - no built-in warnings were emitted
+  - flop c-bet shares are now materially more active than the first smoke:
+    - `single_raised_pot_ip 31.69%`
+    - `single_raised_pot_oop 38.12%`
+    - `three_bet_pot_ip 56.00%`
+    - `three_bet_pot_oop 47.92%`
+  - however the current threshold path has over-tightened:
+    - `turn:medium_made_hand:medium` -> `100% fold`
+    - `turn:medium_made_hand:small` -> `100% fold`
+    - `river:medium_made_hand:medium` -> `100% fold`
+    - `river bluff-catch` samples for `medium_made_hand` and `weak_showdown_value` are also `100% fold`
+- A narrow local calibration pass for `HeadsUpPostflopTeacherV2` has now been completed without changing the improved flop c-bet structure.
+- The current best local candidate is the final fixed-seed run under:
+  - `outputs/heads_up_postflop_v2_calibration_local_2000f/heads_up_postflop_spot_report.json`
+  - `outputs/heads_up_postflop_v2_calibration_local_2000f/heads_up_postflop_sanity_report.json`
+- Final local calibration summary on `2000` hands with fixed seed `42`:
+  - flop stayed unchanged:
+    - `single_raised_pot_ip c-bet 31.69%`
+    - `single_raised_pot_oop c-bet 38.12%`
+  - overall turn/river action mix moved only modestly:
+    - turn `call 9.94% / fold 15.08%`
+    - river `call 13.80% / fold 11.78%`
+  - targeted medium-strength collapse is materially improved:
+    - `turn:medium_made_hand:medium` -> `51.11% call / 48.89% fold`
+    - `river:medium_made_hand:medium` -> `33.33% call / 66.67% fold`
+  - weak-showdown bluff-catch is still tight:
+    - `river:weak_showdown_value:medium` -> `100% fold`
+    - `river:weak_showdown_value:small` -> `100% fold`
+  - remaining warning:
+    - `turn:medium_made_hand:small` -> `100% call`
+    - current interpretation is that this is a low-sample pressure bucket edge case, not a broad collapse
+- Main Interface v1 now exists in `demo/` with a three-column product layout:
+  - left = bot control / preset / custom profile
+  - center = current poker state + decision + evaluator/policy summary
+  - right = context-aware poker explanation chat
+- The 8-bot replay interface now lives separately in `demo/training.html` for internal testing and validation.
+- The chat layer is no longer attached to the training UI; it now lives in the main product interface.
+- The chat layer now supports a real OpenAI provider path in addition to mock and generic OpenAI-compatible backends.
+- The chat layer now explicitly supports a remote fine-tuned model backend as the main production path.
+- The current default remote chat target is now the live S5000 inference service:
+  - base URL: `http://10.10.142.113:8001/v1`
+  - model: `Qwen3-4B-Instruct-2507`
+  - API shape: OpenAI-compatible `POST /chat/completions`
+- The direct `transformers` path on the remote machine produced sane output, while the current `vLLM` path remained unstable.
+- A lightweight fallback service now exists for the remote Qwen deployment:
+  - `tools/transformers_qwen_openai_server.py`
+  - docs: `docs/remote_transformers_service.md`
+- Current recommendation:
+  - stop spending time on `vLLM` for this phase
+  - run the lightweight `transformers` OpenAI-compatible service on S5000
+  - keep PKclaw local chat integration unchanged
+- `pkbot/chat_service.py` now accepts both the shorter production env vars and legacy aliases:
+  - `PKCLAW_CHAT_PROVIDER`
+  - `PKCLAW_BASE_URL` / `PKCLAW_CHAT_BASE_URL`
+  - `PKCLAW_API_KEY` / `PKCLAW_CHAT_API_KEY`
+  - `PKCLAW_MODEL` / `PKCLAW_CHAT_MODEL`
+- The main UI chat sidebar already sends:
+  - current `GameState`
+  - current `StyleProfile`
+  - evaluator outputs
+  - policy outputs
+  - chosen action
+  - size bucket
+  through `/api/chat`, which then routes the request through `chat_service`
+- The right-side chat sidebar is now product-oriented rather than generic:
+  - explain current hand
+  - why not another action
+  - compare tighter / more aggressive styles
+  - replay-style hand review
+- The chat layer now also supports messy pasted hand-history input for short first-pass analysis.
+- Chat interactions are now logged for future SFT prep under:
+  - `outputs/chat_logs/chat_events.jsonl`
+- A first SFT export path now exists:
+  - `main.py export-chat-sft-dataset`
+  - default output: `outputs/chat_logs/chat_sft_dataset.jsonl`
 - Rule-driven bot core exists for 8-max NLH and can run single-hand and batch simulations.
 - Eight style presets are available and drive different decision tendencies.
 - Batch simulation exports hand history and decision datasets under `outputs/`.
@@ -93,6 +258,15 @@
   - Reason: evaluator quality depends more on coverage of high-value spots than on raw frequency realism.
 
 ## Unresolved Problems
+- The old preflop labeling collapse is now materially fixed in the long `validate-preflop-v2` run, and the report no longer emits collapse warnings.
+- PreflopTeacherV2 now looks strong enough to serve as the formal v2 preflop teacher source, but future calibration should still watch one hot spot:
+  - `opener_or_caller_facing_3bet` remains aggressive at `56.48% raise`
+- `sb_first_in` now appears in the long validation run and no longer blocks adoption, but it still has much smaller sample count than `UTG/UTG+1/MP/HJ/CO` first-in spots.
+- `HeadsUpPostflopTeacherV2` is now built, integrated, and locally calibrated, but it is not fully ready for final promotion yet.
+- The original broad medium-strength collapse is materially improved.
+- The remaining heads-up postflop failure mode is now much narrower:
+  - weak-showdown river bluff-catch still folds too often
+  - small-pressure turn medium-strength coverage is still thin and noisy
 - Some profiles are still too loose in self-play.
 - Multiway logic is still crude.
 - Side-pot handling is not yet complete.
@@ -277,6 +451,7 @@
     - the two fixed scenario examples still show an open-vs-check mismatch, so the preflop drift is improved globally but not fully eliminated on edge examples
 
 ## Key Files
+- `docs/strength_improvement_v2_report.md`
 - `main.py`
 - `pkbot/game_state.py`
 - `pkbot/style_profile.py`
@@ -291,6 +466,13 @@
 - `pkbot/policy_adapter.py`
 - `pkbot/policy_dataset_export.py`
 - `pkbot/policy_validation.py`
+- `pkbot/preflop_labeling.py`
+- `pkbot/preflop_teacher_v2.py`
+- `pkbot/preflop_validation.py`
+- `pkbot/postflop_labeling.py`
+- `pkbot/heads_up_postflop_teacher_v2.py`
+- `pkbot/heads_up_postflop_validation.py`
+- `pkbot/product_entry.py`
 - `pkbot/strategy/context_builder.py`
 - `pkbot/strategy/layer.py`
 - `pkbot/strategy/preflop_policy.py`
@@ -306,8 +488,11 @@
 - `pkbot/exporter.py`
 - `pkbot/test_scenarios.py`
 - `demo/index.html`
+- `demo/training.html`
 - `demo/app.js`
+- `demo/training.js`
 - `demo/styles.css`
+- `demo/training.css`
 - `outputs/profile_summary.csv`
 - `outputs/profile_summary.json`
 
@@ -327,6 +512,11 @@
 .\\.venv\\Scripts\\python.exe main.py scenarios --model-path outputs\\evaluator_v1\\evaluator_v1_baseline.joblib --policy-path outputs\\policy_baseline\\policy_model.joblib
 .\\.venv\\Scripts\\python.exe main.py validate-policy-baseline --hands 300 --seed 42 --model-path outputs\\evaluator_v1\\evaluator_v1_baseline.joblib --policy-path outputs\\policy_v1\\policy_model_v1.joblib --output outputs\\policy_v1\\policy_validation.json
 .\\.venv\\Scripts\\python.exe main.py validate-policy-baseline --hands 300 --seed 42 --model-path outputs\\evaluator_v1\\evaluator_v1_baseline.joblib --policy-path outputs\\policy_v1_1\\policy_model_v1_1.joblib --output outputs\\policy_v1_1\\policy_validation_v1_1.json
+.\\.venv\\Scripts\\python.exe main.py validate-preflop-v2 --hands 250 --seed 42 --export-dir outputs\\preflop_v2_smoke3 --model-path outputs\\evaluator_v1\\evaluator_v1_baseline.joblib
+.\\.venv\\Scripts\\python.exe main.py validate-preflop-v2 --hands 2000 --seed 42 --export-dir outputs\\preflop_v2_validation_2000 --model-path outputs\\evaluator_v1\\evaluator_v1_baseline.joblib
+.\\.venv\\Scripts\\python.exe main.py validate-heads-up-postflop-v2 --hands 300 --seed 42 --export-dir outputs\\heads_up_postflop_v2_smoke --model-path outputs\\evaluator_v1\\evaluator_v1_baseline.joblib
+.\\.venv\\Scripts\\python.exe main.py validate-heads-up-postflop-v2 --hands 2000 --seed 42 --export-dir outputs\\heads_up_postflop_v2_validation_2000 --model-path outputs\\evaluator_v1\\evaluator_v1_baseline.joblib
+.\\.venv\\Scripts\\python.exe main.py validate-heads-up-postflop-v2 --hands 2000 --seed 42 --export-dir outputs\\heads_up_postflop_v2_calibration_local_2000f --model-path outputs\\evaluator_v1\\evaluator_v1_baseline.joblib
 .\.venv\Scripts\python.exe main.py ab-test-evaluator --hands 50 --seed 42 --model-path outputs\evaluator_v1\evaluator_model.joblib --output outputs\evaluator_v1\ab_test_summary.json
 .\.venv\Scripts\python.exe main.py calibration-sweep --hands 120 --seed 42 --model-path outputs\evaluator_v1\evaluator_v1_baseline.joblib --output-dir outputs\evaluator_v1\calibration
 .\.venv\Scripts\python.exe main.py calibration-sweep-local --hands 200 --seed 42 --model-path outputs\evaluator_v1\evaluator_v1_baseline.joblib --output-dir outputs\evaluator_v1\calibration_local
@@ -336,6 +526,16 @@
 ```
 
 ### Chat layer env setup
+
+```powershell
+$env:PKCLAW_CHAT_PROVIDER="remote"
+$env:PKCLAW_BASE_URL="https://your-remote-qwen-service.example/v1"
+$env:PKCLAW_API_KEY="your-api-key"
+$env:PKCLAW_MODEL="your-finetuned-model-id"
+.\.venv\Scripts\python.exe main.py ui
+```
+
+Legacy alias form also works:
 
 ```powershell
 $env:PKCLAW_CHAT_BASE_URL="https://your-provider.example/v1"
@@ -351,6 +551,20 @@ $env:PKCLAW_CHAT_PROVIDER="mock"
 .\.venv\Scripts\python.exe main.py ui
 ```
 
+### OpenAI official provider example
+
+```powershell
+$env:PKCLAW_CHAT_PROVIDER="openai"
+$env:OPENAI_API_KEY="your-openai-api-key"
+$env:OPENAI_MODEL="gpt-5-mini"
+.\.venv\Scripts\python.exe main.py ui
+```
+
+### UI entry points
+
+- Main interface: `http://127.0.0.1:8000/demo/`
+- Training replay: `http://127.0.0.1:8000/demo/training.html`
+
 ## Latest Baseline Metrics
 - Evaluator v1 baseline on current `dataset_v1.jsonl`
   - `equity_estimate`: `MAE 0.06513`, `RMSE 0.08756`, `R2 0.92354`
@@ -364,6 +578,25 @@ $env:PKCLAW_CHAT_PROVIDER="mock"
   - `active_player_count`
 
 ## Next Recommended Steps
+- Use `docs/strength_improvement_v2_report.md` as the handoff document for the next strength-focused training phase.
+- Keep `outputs/policy_baseline_v1/`, `outputs/policy_v1_1/`, and `outputs/evaluator_v1/evaluator_v1_baseline.joblib` frozen as baseline artifacts.
+- Treat the next bottleneck as teacher quality and task decomposition, not model size.
+- Continue iterating on `PreflopTeacherV2` as the separate teacher path before retraining another generic policy.
+- Treat `PreflopTeacherV2` as the formal v2 preflop teacher source for the next training phase.
+- If preflop tuning continues, target `opener_or_caller_facing_3bet` first rather than reopening broad preflop labeling work.
+- Move the main v2 teacher path forward to `HeadsUpPostflopTeacherV2`.
+- Keep the current local heads-up postflop calibration candidate as the active working branch.
+- Do not reopen flop tuning.
+- If heads-up postflop tuning continues, keep it narrowly focused on:
+  - weak-showdown river bluff-catch under small and medium pressure
+  - confirming that `turn:medium_made_hand:medium` remains near the current balanced middle on another fixed-seed run
+- Split the next learned-policy path into:
+  - preflop
+  - heads-up postflop
+  - multiway postflop
+- Keep the new explicit preflop spot labeling and use it as the only source for future preflop policy exports.
+- Add a DAgger-style corrective loop that runs the current learned policy, captures divergence-heavy hard spots, and relabels them with stronger teacher logic.
+- Keep the internal simulator as the main short-term 8-handed data engine, and evaluate `PokerKit` first if a stronger external rules engine becomes necessary.
 - Improve feature quality around action history, board interaction, and position-aware range pressure.
 - Collect a larger evaluator dataset so `showdown_strength_proxy` stabilizes across turn/river spots.
 - Tighten the sampling planner toward explicit spot quotas for c-bet, barrel, bluff-catch, blind defense, and 3-bet trees.
@@ -375,5 +608,6 @@ $env:PKCLAW_CHAT_PROVIDER="mock"
 - Next policy work should keep tightening preflop teacher imitation in open/steal spots, because the global drift is much smaller in v1.1 but the fixed unopened/late-steal examples still miss.
 - Next policy work should improve dataset scale and target quality before trying a more expressive model family.
 - Next product-layer work can swap chat providers or models without changing the UI contract, because the hand discussion panel now only depends on the local `/api/chat` interface.
+- Next chat work should improve explanation quality and conversation UX, not move the chat back into the training interface.
 - Evaluate whether PokerKit should replace or support parts of the current engine/state progression layer.
 - Start defining a second-stage policy model only after evaluator quality is materially better.

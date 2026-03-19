@@ -5,6 +5,8 @@ from dataclasses import dataclass, field
 
 from ..evaluator_service import EvaluatorSnapshot
 from ..game_state import GameState
+from ..postflop_labeling import PostflopActionSummary
+from ..preflop_labeling import PreflopActionSummary
 from ..style_profile import StyleProfile
 
 
@@ -19,6 +21,8 @@ class StrategyContext:
     reason_tags: list[str] = field(default_factory=list)
     notes: list[str] = field(default_factory=list)
     evaluator_snapshot: EvaluatorSnapshot = field(default_factory=EvaluatorSnapshot)
+    preflop_spot: PreflopActionSummary | None = None
+    postflop_spot: PostflopActionSummary | None = None
 
 
 @dataclass(slots=True)

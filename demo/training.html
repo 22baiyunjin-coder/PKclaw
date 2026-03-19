@@ -1,0 +1,125 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>PKclaw Training Replay</title>
+  <link rel="stylesheet" href="training.css">
+</head>
+<body>
+  <div class="app-shell">
+    <header class="topbar">
+      <div>
+        <p class="eyebrow">PKclaw / Internal Training Harness</p>
+        <h1>8-Bot Table Replay</h1>
+      </div>
+      <div class="controls-inline">
+        <a class="ghost-button" href="/demo/">Main Interface</a>
+        <button id="deal-hand" class="primary-button" type="button">Deal New Hand</button>
+        <button id="toggle-play" class="ghost-button" type="button">Play</button>
+        <button id="next-step" class="ghost-button" type="button">Next Step</button>
+        <label class="speed-control" for="speed-select">Speed
+          <select id="speed-select">
+            <option value="1400">Slow</option>
+            <option value="900" selected>Normal</option>
+            <option value="500">Fast</option>
+          </select>
+        </label>
+      </div>
+    </header>
+
+    <main class="layout">
+      <section class="table-stage panel">
+        <div class="status-strip">
+          <div>
+            <p class="eyebrow">Hand Status</p>
+            <h2 id="headline">Loading hand...</h2>
+          </div>
+          <div class="status-metrics">
+            <article class="metric-card">
+              <span class="metric-label">Street</span>
+              <strong id="street-label">Preflop</strong>
+            </article>
+            <article class="metric-card">
+              <span class="metric-label">Pot</span>
+              <strong id="pot-label">0 BB</strong>
+            </article>
+            <article class="metric-card">
+              <span class="metric-label">Step</span>
+              <strong id="step-label">0 / 0</strong>
+            </article>
+          </div>
+        </div>
+
+        <div class="table-scroll">
+          <div class="table-visual">
+            <div class="felt-glow"></div>
+            <div class="table-ring"></div>
+
+            <div class="table-board">
+              <span class="board-label">Board</span>
+              <div id="community-cards" class="community-cards"></div>
+            </div>
+
+            <div class="table-center">
+              <span class="label">Current Pot</span>
+              <strong id="table-pot">0 BB</strong>
+              <span id="winner-banner" class="winner-banner"></span>
+            </div>
+
+            <article class="seat seat-utg" data-seat="UTG"></article>
+            <article class="seat seat-utg1" data-seat="UTG+1"></article>
+            <article class="seat seat-mp" data-seat="MP"></article>
+            <article class="seat seat-hj" data-seat="HJ"></article>
+            <article class="seat seat-co" data-seat="CO"></article>
+            <article class="seat seat-btn" data-seat="BTN"></article>
+            <article class="seat seat-sb" data-seat="SB"></article>
+            <article class="seat seat-bb" data-seat="BB"></article>
+          </div>
+        </div>
+      </section>
+
+      <section class="sidebar">
+        <section class="panel info-panel">
+          <div class="section-head">
+            <div>
+              <p class="eyebrow">Replay</p>
+              <h3>Current Action</h3>
+            </div>
+            <span id="seed-pill" class="seed-pill">Seed --</span>
+          </div>
+          <div class="action-card">
+            <div class="action-main">
+              <strong id="action-label">Waiting...</strong>
+              <span id="action-kind" class="action-kind">hand_start</span>
+            </div>
+            <p id="action-detail" class="subtle">Preparing table state.</p>
+          </div>
+        </section>
+
+        <section class="panel info-panel">
+          <div class="section-head">
+            <div>
+              <p class="eyebrow">Players</p>
+              <h3>Table Summary</h3>
+            </div>
+          </div>
+          <div id="summary-grid" class="summary-grid"></div>
+        </section>
+
+        <section class="panel log-panel">
+          <div class="section-head">
+            <div>
+              <p class="eyebrow">Action Log</p>
+              <h3>Every Step</h3>
+            </div>
+          </div>
+          <ol id="action-log" class="action-log"></ol>
+        </section>
+      </section>
+    </main>
+  </div>
+
+  <script src="training.js"></script>
+</body>
+</html>

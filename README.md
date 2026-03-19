@@ -1,9 +1,10 @@
 # PKclaw
 
-PKclaw now has two parallel layers:
+PKclaw now has two UI surfaces plus the backend poker core:
 
-- A polished local product demo UI in `demo/`
-- A runnable backend poker bot core with a formal v1 evaluator pipeline in `pkbot/`
+- Main product entry UI in `demo/` for bot control, current decision, and explanation chat
+- Separate training replay UI in `demo/training.html` for internal 8-bot replay and validation
+- A runnable backend poker bot core with evaluator/policy pipelines in `pkbot/`
 
 ## Commands
 
@@ -39,7 +40,10 @@ If you need to rebuild dependencies:
 .\.venv\Scripts\python.exe main.py ui
 ```
 
-Then open [http://127.0.0.1:8000/demo/](http://127.0.0.1:8000/demo/)
+Then open:
+
+- Main interface: [http://127.0.0.1:8000/demo/](http://127.0.0.1:8000/demo/)
+- Training replay: [http://127.0.0.1:8000/demo/training.html](http://127.0.0.1:8000/demo/training.html)
 
 ### Build evaluator dataset v1
 
@@ -148,23 +152,76 @@ Then open [http://127.0.0.1:8000/demo/](http://127.0.0.1:8000/demo/)
 - Baseline LightGBM learned policy training and load/save support
 - A/B comparison flow between heuristic-only and evaluator-assisted engines
 - A local chat layer for hand discussion, backed by a configurable external LLM API through `/api/chat`
+- A product-state API through `/api/product-state` so the main UI can fetch current state, style profile, evaluator summary, policy summary, chosen action, and chat context in one payload
 
 ## Chat Layer Setup
 
-The UI now includes a ChatGPT-style hand discussion panel. The browser only talks to the local PKclaw server. Your API key stays on the backend.
+The UI now includes a ChatGPT-style hand discussion panel. The browser only talks to the local PKclaw server. Your API key stays on the backend, and `pkbot/chat_service.py` is the only layer that talks to the remote model.
 
-PowerShell example for an OpenAI-compatible endpoint:
+Recommended production path for the current product:
+
+- keep the fine-tuned dialogue model deployed remotely
+- point the local PKclaw backend at that remote endpoint
+- let `/api/chat` send the current poker context through `chat_service`
+- swap models later by changing env vars, not by rewriting the UI
+
+Current working remote inference target:
+
+- base URL: `http://10.10.142.113:8001/v1`
+- model: `Qwen3-4B-Instruct-2507`
+- endpoint shape: OpenAI-compatible `POST /chat/completions`
+
+If `vLLM` is unstable on the remote machine, the recommended fallback is now:
+
+- run `tools/transformers_qwen_openai_server.py` on the remote host
+- keep the same `base_url` / `model` contract for PKclaw
+- details: [docs/remote_transformers_service.md](/C:/Users/MT/PycharmProjects/PKclaw/docs/remote_transformers_service.md)
+
+Recommended remote fine-tuned model example:
 
 ```powershell
+$env:PKCLAW_CHAT_PROVIDER="remote"
+$env:PKCLAW_BASE_URL="http://10.10.142.113:8001/v1"
+$env:PKCLAW_MODEL="Qwen3-4B-Instruct-2507"
+.\.venv\Scripts\python.exe main.py ui
+```
+
+The remote provider assumes an OpenAI-compatible chat endpoint by default. If your deployment uses a different path, override it:
+
+```powershell
+$env:PKCLAW_API_PATH="/chat/completions"
+```
+
+OpenAI official provider example:
+
+```powershell
+$env:PKCLAW_CHAT_PROVIDER="openai"
+$env:OPENAI_API_KEY="your-openai-api-key"
+$env:OPENAI_MODEL="gpt-5-mini"
+.\.venv\Scripts\python.exe main.py ui
+```
+
+PowerShell example for a generic OpenAI-compatible endpoint:
+
+```powershell
+$env:PKCLAW_CHAT_PROVIDER="openai_compatible"
 $env:PKCLAW_CHAT_BASE_URL="https://your-provider.example/v1"
 $env:PKCLAW_CHAT_API_KEY="your-api-key"
 $env:PKCLAW_CHAT_MODEL="your-model-id"
 .\.venv\Scripts\python.exe main.py ui
 ```
 
+The shorter `PKCLAW_*` names and the older `PKCLAW_CHAT_*` names are both supported. The shorter names are the recommended production config for the remote fine-tuned model path.
+
 Optional configuration:
 
 ```powershell
+$env:PKCLAW_API_PATH="/chat/completions"
+$env:PKCLAW_TEMPERATURE="0.35"
+$env:PKCLAW_TIMEOUT_SECONDS="45"
+$env:PKCLAW_EXTRA_HEADERS='{"HTTP-Referer":"https://your-app.example"}'
+
+# Legacy aliases still supported:
 $env:PKCLAW_CHAT_API_PATH="/chat/completions"
 $env:PKCLAW_CHAT_TEMPERATURE="0.35"
 $env:PKCLAW_CHAT_TIMEOUT_SECONDS="45"
@@ -176,6 +233,57 @@ If you just want to verify the UI wiring locally before adding a real provider:
 ```powershell
 $env:PKCLAW_CHAT_PROVIDER="mock"
 .\.venv\Scripts\python.exe main.py ui
+```
+
+Current chat product modes:
+
+- Explain the current hand
+- Why not another action
+- Compare styles
+- Review the hand in a replay style
+- First-pass messy hand-history analysis from pasted raw text
+
+Current chat context payload includes:
+
+- current `GameState`
+- current `StyleProfile`
+- evaluator outputs
+- policy outputs
+- chosen action
+- size bucket
+
+Future fine-tuning or model replacement should connect here:
+
+- keep the UI talking only to `/api/chat`
+- keep `chat_service` as the backend orchestrator
+- swap the remote deployment by updating `PKCLAW_CHAT_PROVIDER`, `PKCLAW_BASE_URL`, `PKCLAW_API_KEY`, `PKCLAW_MODEL`, and optional path/header settings
+
+## Chat Logging And SFT Prep
+
+Every chat request can now be logged for later SFT curation. The log captures:
+
+- raw user message history
+- structured poker context sent to the model
+- request type and request metadata
+- provider / model / base URL
+- model response
+- response flags
+- failures
+
+Default log file:
+
+- `outputs/chat_logs/chat_events.jsonl`
+
+Export an SFT-ready dataset from those logs:
+
+```powershell
+.\.venv\Scripts\python.exe main.py export-chat-sft-dataset --log-dir outputs\chat_logs --output outputs\chat_logs\chat_sft_dataset.jsonl
+```
+
+Include failures in the export if you want to review bad cases:
+
+```powershell
+.\.venv\Scripts\python.exe main.py export-chat-sft-dataset --include-failures
 ```
 
 ## Export files

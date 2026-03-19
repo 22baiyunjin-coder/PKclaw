@@ -14,19 +14,9 @@ export interface ChatMessagePayload {
   content: string;
 }
 
-export interface PersonaProfile {
-  name: string;
-  roleLabel: string;
-  tagline: string;
-  description: string;
-  statusHeadline: string;
-  systemTraits: string[];
-  openingPrompts: string[];
-  visualMode: "card-2d" | "live2d" | "3d";
-}
-
 export interface ChatApiRequest {
   messages: ChatMessagePayload[];
+  handContext?: Record<string, unknown> | null;
 }
 
 export interface ChatApiResponse {
@@ -34,7 +24,7 @@ export interface ChatApiResponse {
   provider: ReplyProvider;
 }
 
-export interface MinimaxReply {
+export interface ModelReply {
   content: string;
   provider: ReplyProvider;
 }

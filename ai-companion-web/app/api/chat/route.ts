@@ -1,11 +1,7 @@
 import { NextResponse } from "next/server";
 
 import { generateChatReply } from "@/lib/minimax";
-import type {
-  ChatApiRequest,
-  ChatApiResponse,
-  ChatMessagePayload,
-} from "@/types/chat";
+import type { ChatApiRequest, ChatApiResponse, ChatMessagePayload } from "@/types/chat";
 
 function isMessagePayloadArray(value: unknown): value is ChatMessagePayload[] {
   return (
@@ -33,7 +29,7 @@ export async function POST(request: Request) {
       );
     }
 
-    const result = await generateChatReply(body.messages);
+    const result = await generateChatReply(body.messages, body.handContext);
 
     const payload: ChatApiResponse = {
       reply: {

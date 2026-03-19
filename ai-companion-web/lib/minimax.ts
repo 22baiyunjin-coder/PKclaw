@@ -1,10 +1,10 @@
 import { generateMockReply } from "@/lib/mockReply";
 import { withPersonaSystemMessage } from "@/lib/persona";
-import type { ChatMessagePayload, MinimaxReply } from "@/types/chat";
+import type { ChatMessagePayload, ModelReply } from "@/types/chat";
 
 const DEFAULT_MINIMAX_BASE_URL = "https://api.minimaxi.com/v1";
 const DEFAULT_MINIMAX_MODEL = "MiniMax-M2.5";
-const MAX_CONTEXT_MESSAGES = 12;
+const MAX_CONTEXT_MESSAGES = 14;
 
 function normalizeBaseUrl(): string {
   const rawBaseUrl = process.env.MINIMAX_BASE_URL?.trim();
@@ -19,9 +19,7 @@ function getApiKey(): string {
   return process.env.MINIMAX_API_KEY?.trim() || "";
 }
 
-function compactConversation(
-  messages: ChatMessagePayload[],
-): ChatMessagePayload[] {
+function compactConversation(messages: ChatMessagePayload[]): ChatMessagePayload[] {
   return messages
     .filter((message) => message.role !== "system")
     .slice(-MAX_CONTEXT_MESSAGES);
@@ -70,7 +68,8 @@ function extractTextContent(payload: unknown): string {
 
 async function requestMinimax(
   messages: ChatMessagePayload[],
-): Promise<MinimaxReply> {
+  handContext?: Record<string, unknown> | null,
+): Promise<ModelReply> {
   const response = await fetch(`${normalizeBaseUrl()}/chat/completions`, {
     method: "POST",
     headers: {
@@ -79,8 +78,11 @@ async function requestMinimax(
     },
     body: JSON.stringify({
       model: getModelName(),
-      temperature: 0.75,
-      messages: withPersonaSystemMessage(compactConversation(messages)),
+      temperature: 0.72,
+      messages: withPersonaSystemMessage(
+        compactConversation(messages),
+        handContext,
+      ),
     }),
   });
 
@@ -109,13 +111,14 @@ async function requestMinimax(
 
 export async function generateChatReply(
   messages: ChatMessagePayload[],
-): Promise<MinimaxReply> {
+  handContext?: Record<string, unknown> | null,
+): Promise<ModelReply> {
   if (!getApiKey()) {
     return {
-      content: generateMockReply(messages),
+      content: generateMockReply(messages, handContext),
       provider: "mock",
     };
   }
 
-  return requestMinimax(messages);
+  return requestMinimax(messages, handContext);
 }

@@ -12,6 +12,8 @@ from .dataset_export import (
     count_samples_by_street,
 )
 from .engine import HandResult
+from .postflop_labeling import classify_postflop_spot_from_raw_state
+from .preflop_labeling import classify_preflop_spot_from_raw_state, match_spot_target
 from .policy_interface import LEGAL_SIZE_BUCKETS_BY_STREET, POLICY_ACTIONS, POLICY_SIZE_BUCKETS
 
 DEFAULT_POLICY_STREET_TARGETS = {
@@ -106,6 +108,7 @@ def export_policy_dataset(
     exported_street_counts = {street: 0 for street in DATASET_STREETS}
     tag_summary = {
         "spot_type": {},
+        "action_context_subtype": {},
         "player_bucket": {},
         "position": {},
         "hand_class": {},
@@ -201,7 +204,7 @@ def export_policy_dataset(
             "mode": "stratified_with_forced_coverage",
             "street_targets": street_targets,
             "spot_targets": resolved_spot_targets,
-            "coverage_axes": ["position", "player_bucket", "spot_type", "hand_class", "board_texture"],
+            "coverage_axes": ["position", "player_bucket", "spot_type", "action_context_subtype", "hand_class", "board_texture"],
         },
         "candidate_hands": len(result_list),
         "candidate_samples_by_street": count_samples_by_street(result_list),
@@ -253,19 +256,21 @@ def _select_policy_rows_for_street(
     selected_indices: set[int] = set()
     ordered_selection: list[tuple[HandResult, int, object]] = []
     for spot_type, spot_target in min_spot_targets.items():
+        matched_count = 0
         for index, row in enumerate(rows):
             if len(ordered_selection) >= target or sum(1 for _, _, sample in ordered_selection if sample.street == street) >= target:
                 return ordered_selection
             if index in selected_indices:
                 continue
-            if row[3]["spot_type"] != spot_type:
+            if not _row_matches_target(row[3], spot_type):
                 continue
             selected_indices.add(index)
             ordered_selection.append((row[0], row[1], row[2]))
-            if sum(1 for _index, candidate in enumerate(rows) if _index in selected_indices and candidate[3]["spot_type"] == spot_type) >= spot_target:
+            matched_count += 1
+            if matched_count >= spot_target:
                 break
 
-    coverage_keys = ["position", "player_bucket", "hand_class", "board_texture"]
+    coverage_keys = ["position", "player_bucket", "action_context_subtype", "hand_class", "board_texture"]
     for key in coverage_keys:
         seen: set[str] = set()
         for index, row in enumerate(rows):
@@ -295,27 +300,25 @@ def _select_policy_rows_for_street(
 
 def _build_policy_sample_tags(raw_state: dict[str, object], features: dict[str, float], position: str, street: str) -> dict[str, str]:
     active_player_count = len(raw_state.get("active_players", []))
-    facing_bet = bool(raw_state.get("facing_bet", False))
-    facing_raise = bool(raw_state.get("facing_raise", False))
-    is_preflop_aggressor = bool(raw_state.get("is_preflop_aggressor", False))
-    preflop_raise_count = int(features.get("preflop_raise_count", 0.0))
     hand_class = _policy_hand_class(street, features)
     board_texture = _policy_board_texture_tag(raw_state, features)
     player_bucket = _policy_player_bucket(street, active_player_count)
-    spot_type = _policy_spot_type(
-        raw_state,
-        street,
-        position,
-        active_player_count,
-        facing_bet,
-        facing_raise,
-        is_preflop_aggressor,
-        preflop_raise_count,
-        hand_class,
-        board_texture,
-    )
+    if street == "preflop":
+        summary = classify_preflop_spot_from_raw_state(raw_state)
+        return {
+            "street": street,
+            "spot_type": summary.spot_type,
+            "action_context_subtype": summary.action_context_subtype,
+            "player_bucket": player_bucket,
+            "position": position,
+            "hand_class": hand_class,
+            "board_texture": board_texture,
+        }
+    summary = classify_postflop_spot_from_raw_state(raw_state)
     return {
-        "spot_type": spot_type,
+        "street": street,
+        "spot_type": summary.spot_type,
+        "action_context_subtype": summary.action_context_subtype,
         "player_bucket": player_bucket,
         "position": position,
         "hand_class": hand_class,
@@ -334,11 +337,10 @@ def _policy_sample_priority(tags: dict[str, str]) -> int:
         "barrel_spot",
         "river_bluff_catch",
         "river_value_decision",
-        "btn_steal",
-        "co_open",
-        "sb_complete_raise",
-        "bb_defend_vs_late_open",
         "unopened_preflop_open",
+        "late_position_steal",
+        "squeeze_opportunity",
+        "facing_squeeze",
     }:
         score += 3
     if tags["player_bucket"] == "heads_up":
@@ -425,74 +427,39 @@ def _policy_board_texture_tag(raw_state: dict[str, object], features: dict[str, 
     return "dry_board"
 
 
-def _policy_spot_type(
-    raw_state: dict[str, object],
-    street: str,
-    position: str,
-    active_player_count: int,
-    facing_bet: bool,
-    facing_raise: bool,
-    is_preflop_aggressor: bool,
-    preflop_raise_count: int,
-    hand_class: str,
-    board_texture: str,
-) -> str:
-    if street == "preflop":
-        opener_positions = [
-            action["position"]
-            for action in raw_state.get("action_history", [])
-            if action["street"] == "preflop" and action["action"] == "raise" and action.get("note") != "blind_post"
-        ]
-        late_open = bool(opener_positions and opener_positions[-1] in {"CO", "BTN", "SB"} and preflop_raise_count == 1)
-        blind_only_spot = position == "SB" and raw_state.get("amount_to_call", 0.0) <= raw_state.get("small_blind", 0.5) + 1e-9
-
-        if not facing_bet and not facing_raise:
-            if position == "BTN":
-                return "btn_steal"
-            if position == "CO":
-                return "co_open"
-            if position == "SB" or blind_only_spot:
-                return "sb_complete_raise"
-            return "unopened_preflop_open"
-        if position == "BB" and late_open:
-            return "bb_defend_vs_late_open"
-        if position == "SB" and blind_only_spot:
-            return "sb_complete_raise"
-        if facing_raise or preflop_raise_count >= 2:
-            return "facing_3bet"
-        if position == "BB":
-            return "blind_defense"
-        if position == "SB":
-            return "small_blind_defense"
-        return "facing_open"
-
-    if street == "flop":
-        if active_player_count >= 4:
-            return "multiway_flop"
-        if is_preflop_aggressor and not facing_bet:
-            return "cbet_spot"
-        if facing_bet:
-            return "facing_cbet"
-        if board_texture in {"wet_board", "monotone_board"}:
-            return "draw_pressure_flop"
-        return "checked_flop"
-
-    if street == "turn":
-        if is_preflop_aggressor and not facing_bet:
-            return "barrel_spot"
-        if facing_bet:
-            return "facing_second_barrel"
-        if hand_class in {"strong_draw", "weak_draw"}:
-            return "draw_turn_decision"
-        return "turn_probe_or_checkback"
-
-    if facing_bet:
-        return "river_bluff_catch"
-    if hand_class in {"strong_made_hand", "medium_made_hand"}:
-        return "river_value_decision"
-    if hand_class in {"air", "weak_draw"}:
-        return "river_bluff_decision"
-    return "river_showdown_hand"
+def _row_matches_target(tags: dict[str, str], target_key: str) -> bool:
+    if target_key == tags["spot_type"]:
+        return True
+    if tags.get("board_texture") == "preflop":
+        summary = type("SummaryView", (), {
+            "spot_type": tags["spot_type"],
+            "action_context_subtype": tags.get("action_context_subtype", ""),
+            "hero_position": tags["position"],
+        })()
+        return match_spot_target(summary, target_key, position=tags["position"])
+    postflop_compatibility = {
+        "cbet_spot": {"flop_cbet_opportunity"},
+        "facing_cbet": {"flop_facing_cbet"},
+        "multiway_flop": {"multiway_postflop_generic"},
+        "checked_flop": {"flop_probe_or_delayed_cbet"},
+        "barrel_spot": {"turn_barrel_opportunity"},
+        "facing_second_barrel": {"turn_facing_barrel"},
+        "turn_probe_or_checkback": {"turn_probe_or_delayed_barrel"},
+        "river_value_decision": {"river_value_decision"},
+        "river_bluff_catch": {"river_bluff_catch", "river_facing_value_or_polar"},
+        "river_bluff_decision": {"river_bluff_or_giveup"},
+    }
+    if target_key in postflop_compatibility and tags["spot_type"] in postflop_compatibility[target_key]:
+        if target_key == "multiway_flop":
+            return tags.get("street") == "flop" and tags.get("player_bucket") != "heads_up"
+        return True
+    if target_key == "draw_pressure_flop":
+        return tags.get("street") == "flop" and tags.get("hand_class") in {"strong_draw", "weak_draw"}
+    if target_key == "draw_turn_decision":
+        return tags.get("street") == "turn" and tags.get("hand_class") in {"strong_draw", "weak_draw"}
+    if target_key == "river_showdown_hand":
+        return tags.get("street") == "river" and tags.get("hand_class") in {"medium_made_hand", "weak_showdown_value"}
+    return False
 
 
 def _write_csv(path: Path, rows: list[dict[str, object]]) -> None:

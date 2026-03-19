@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import argparse
 import json
-from functools import partial
+from functools import lru_cache, partial
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from random import Random
@@ -11,15 +11,19 @@ from urllib.parse import parse_qs, urlparse
 from pkbot.ab_test import run_engine_ab_test
 from pkbot.calibration_sweep import run_calibration_sweep, strong_fold_bias_local_grid
 from pkbot.candidate_validation import run_candidate_validation
-from pkbot.chat_service import ChatServiceError, chat_about_hand, get_chat_status
+from pkbot.chat_service import ChatServiceError, chat_about_hand, export_chat_sft_dataset, get_chat_status
 from pkbot.dataset_export import count_samples_by_street, export_evaluator_dataset
 from pkbot.engine import TableSimulator
 from pkbot.evaluator_tuning import river_clamp_candidate_tuning
 from pkbot.exporter import export_hand_results
+from pkbot.heads_up_postflop_validation import run_heads_up_postflop_teacher_v2_validation
+from pkbot.live_bridge import build_live_decision_payload
 from pkbot.model_interface import load_evaluator_model
+from pkbot.product_entry import build_product_entry_payload
 from pkbot.policy_dataset_export import POLICY_V1_1_SPOT_TARGETS, export_policy_dataset
 from pkbot.policy_interface import load_policy_model
 from pkbot.policy_validation import run_policy_teacher_validation
+from pkbot.preflop_validation import run_preflop_teacher_v2_validation
 from pkbot.replay import build_hand_replay
 from pkbot.test_scenarios import run_demo_scenarios
 from pkbot.train_policy import print_policy_training_report, save_policy_training_report, train_lightgbm_policy
@@ -27,6 +31,15 @@ from pkbot.train_evaluator import print_training_report, save_training_report, t
 
 HOST = "127.0.0.1"
 PORT = 8000
+DEFAULT_EVALUATOR_MODEL_CANDIDATES = [
+    "outputs/evaluator_v1/evaluator_v1_baseline.joblib",
+    "outputs/evaluator_v1/evaluator_model.joblib",
+]
+DEFAULT_POLICY_MODEL_CANDIDATES = [
+    "outputs/policy_v1_1/policy_model_v1_1.joblib",
+    "outputs/policy_baseline_v1/policy_baseline_v1.joblib",
+    "outputs/policy_v1/policy_model_v1.joblib",
+]
 
 
 class DemoRequestHandler(SimpleHTTPRequestHandler):
@@ -37,6 +50,9 @@ class DemoRequestHandler(SimpleHTTPRequestHandler):
         if parsed.path == "/api/replay":
             self._serve_replay(parsed.query)
             return
+        if parsed.path == "/api/product-state":
+            self._serve_product_state()
+            return
         if parsed.path == "/api/chat/status":
             self._serve_chat_status()
             return
@@ -44,6 +60,12 @@ class DemoRequestHandler(SimpleHTTPRequestHandler):
 
     def do_POST(self) -> None:
         parsed = urlparse(self.path)
+        if parsed.path == "/api/product-state":
+            self._handle_product_state_request()
+            return
+        if parsed.path == "/api/decision":
+            self._handle_decision_request()
+            return
         if parsed.path == "/api/chat":
             self._handle_chat_request()
             return
@@ -80,7 +102,7 @@ class DemoRequestHandler(SimpleHTTPRequestHandler):
             self._send_json(
                 400,
                 {
-                    "provider": "openai_compatible",
+                    "provider": "remote",
                     "configured": False,
                     "model": "",
                     "base_url": "",
@@ -96,15 +118,24 @@ class DemoRequestHandler(SimpleHTTPRequestHandler):
             return
 
         messages = payload.get("messages", [])
+        context_package = payload.get("context_package")
         hand_context = payload.get("hand_context")
+        request_type = payload.get("request_type")
+        request_meta = payload.get("request_meta")
         try:
-            completion = chat_about_hand(messages, hand_context)
+            completion = chat_about_hand(
+                messages,
+                context_package=context_package,
+                hand_context=hand_context,
+                request_type=request_type,
+                request_meta=request_meta,
+            )
         except ChatServiceError as exc:
             try:
                 status_payload = get_chat_status().to_dict()
             except ChatServiceError:
                 status_payload = {
-                    "provider": "openai_compatible",
+                    "provider": "remote",
                     "configured": False,
                     "model": "",
                     "base_url": "",
@@ -129,6 +160,52 @@ class DemoRequestHandler(SimpleHTTPRequestHandler):
                 "status": get_chat_status().to_dict(),
             },
         )
+
+    def _serve_product_state(self) -> None:
+        self._send_product_state({})
+
+    def _handle_product_state_request(self) -> None:
+        try:
+            payload = self._read_json_body()
+        except ValueError as exc:
+            self._send_json(400, {"error": str(exc)})
+            return
+        self._send_product_state(payload)
+
+    def _handle_decision_request(self) -> None:
+        try:
+            payload = self._read_json_body()
+        except ValueError as exc:
+            self._send_json(400, {"error": str(exc)})
+            return
+
+        try:
+            response_payload = build_live_decision_payload(
+                payload,
+                evaluator_model=_load_default_product_evaluator(),
+                policy_model=_load_default_product_policy(),
+            )
+        except Exception as exc:  # pragma: no cover - defensive API guard
+            self._send_json(500, {"error": f"Failed to build live decision: {exc}"})
+            return
+
+        self._send_json(200, response_payload)
+
+    def _send_product_state(self, payload: dict) -> None:
+        try:
+            response_payload = build_product_entry_payload(
+                scenario_id=payload.get("scenario_id"),
+                preset_key=payload.get("preset_key"),
+                bot_mode=payload.get("bot_mode"),
+                custom_profile_values=payload.get("custom_profile"),
+                custom_bot_name=payload.get("custom_bot_name"),
+                evaluator_model=_load_default_product_evaluator(),
+                policy_model=_load_default_product_policy(),
+            )
+        except Exception as exc:  # pragma: no cover - defensive API guard
+            self._send_json(500, {"error": f"Failed to build product state: {exc}"})
+            return
+        self._send_json(200, response_payload)
 
     def _read_json_body(self) -> dict:
         content_length = int(self.headers.get("Content-Length", "0"))
@@ -167,13 +244,40 @@ def serve_ui() -> None:
 def _load_model_if_requested(model_path: str | None):
     if not model_path:
         return None
-    return load_evaluator_model(model_path)
+    return _load_evaluator_model_cached(str(Path(model_path)))
 
 
 def _load_policy_if_requested(policy_path: str | None):
     if not policy_path:
         return None
+    return _load_policy_model_cached(str(Path(policy_path)))
+
+
+@lru_cache(maxsize=8)
+def _load_evaluator_model_cached(model_path: str):
+    return load_evaluator_model(model_path)
+
+
+@lru_cache(maxsize=8)
+def _load_policy_model_cached(policy_path: str):
     return load_policy_model(policy_path)
+
+
+def _resolve_existing_model_path(candidates: list[str]) -> str | None:
+    for candidate in candidates:
+        if Path(candidate).exists():
+            return candidate
+    return None
+
+
+def _load_default_product_evaluator():
+    model_path = _resolve_existing_model_path(DEFAULT_EVALUATOR_MODEL_CANDIDATES)
+    return _load_model_if_requested(model_path)
+
+
+def _load_default_product_policy():
+    policy_path = _resolve_existing_model_path(DEFAULT_POLICY_MODEL_CANDIDATES)
+    return _load_policy_if_requested(policy_path)
 
 
 def run_simulation(hands: int, seed: int, export_dir: str | None, model_path: str | None = None, policy_path: str | None = None) -> None:
@@ -426,6 +530,45 @@ def run_candidate_long_validation(hands: int, seed: int, model_path: str, output
     print(f"Saved candidate validation CSV to {csv_path}")
 
 
+def run_preflop_v2_validation(hands: int, seed: int, export_dir: str, model_path: str | None = None) -> None:
+    dataset_jsonl, dataset_csv, spot_report_path, sanity_report_path = run_preflop_teacher_v2_validation(
+        hands=hands,
+        seed=seed,
+        export_dir=export_dir,
+        evaluator_model=_load_model_if_requested(model_path),
+    )
+    print(f"Exported preflop teacher v2 dataset JSONL to {dataset_jsonl}")
+    print(f"Exported preflop teacher v2 dataset CSV to {dataset_csv}")
+    print(f"Saved preflop spot report to {spot_report_path}")
+    print(f"Saved preflop sanity report to {sanity_report_path}")
+    print("\nPreflop spot report")
+    print(Path(spot_report_path).read_text(encoding='utf-8'))
+    print("\nPreflop sanity report")
+    print(Path(sanity_report_path).read_text(encoding='utf-8'))
+
+
+def run_heads_up_postflop_v2_validation(hands: int, seed: int, export_dir: str, model_path: str | None = None) -> None:
+    dataset_jsonl, dataset_csv, spot_report_path, sanity_report_path = run_heads_up_postflop_teacher_v2_validation(
+        hands=hands,
+        seed=seed,
+        export_dir=export_dir,
+        evaluator_model=_load_model_if_requested(model_path),
+    )
+    print(f"Exported heads-up postflop teacher v2 dataset JSONL to {dataset_jsonl}")
+    print(f"Exported heads-up postflop teacher v2 dataset CSV to {dataset_csv}")
+    print(f"Saved heads-up postflop spot report to {spot_report_path}")
+    print(f"Saved heads-up postflop sanity report to {sanity_report_path}")
+    print("\nHeads-up postflop spot report")
+    print(Path(spot_report_path).read_text(encoding="utf-8"))
+    print("\nHeads-up postflop sanity report")
+    print(Path(sanity_report_path).read_text(encoding="utf-8"))
+
+
+def run_chat_sft_export(log_dir: str, output_path: str, include_failures: bool) -> None:
+    dataset_path = export_chat_sft_dataset(log_dir=log_dir, output_path=output_path, include_failures=include_failures)
+    print(f"Exported chat SFT dataset to {dataset_path}")
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description="PKclaw local poker bot core")
     subparsers = parser.add_subparsers(dest="command")
@@ -534,6 +677,23 @@ def build_parser() -> argparse.ArgumentParser:
     validate_candidates.add_argument("--seed", type=int, default=42)
     validate_candidates.add_argument("--model-path", type=str, default="outputs/evaluator_v1/evaluator_v1_baseline.joblib")
     validate_candidates.add_argument("--output-dir", type=str, default="outputs/evaluator_v1/validation")
+
+    preflop_v2 = subparsers.add_parser("validate-preflop-v2", help="Run PreflopTeacherV2 export, spot report, and sanity validation")
+    preflop_v2.add_argument("--hands", type=int, default=300)
+    preflop_v2.add_argument("--seed", type=int, default=42)
+    preflop_v2.add_argument("--export-dir", type=str, default="outputs/preflop_v2")
+    preflop_v2.add_argument("--model-path", type=str, default="outputs/evaluator_v1/evaluator_v1_baseline.joblib")
+
+    heads_up_postflop_v2 = subparsers.add_parser("validate-heads-up-postflop-v2", help="Run HeadsUpPostflopTeacherV2 export, spot report, and sanity validation")
+    heads_up_postflop_v2.add_argument("--hands", type=int, default=400)
+    heads_up_postflop_v2.add_argument("--seed", type=int, default=42)
+    heads_up_postflop_v2.add_argument("--export-dir", type=str, default="outputs/heads_up_postflop_v2")
+    heads_up_postflop_v2.add_argument("--model-path", type=str, default="outputs/evaluator_v1/evaluator_v1_baseline.joblib")
+
+    export_chat_sft = subparsers.add_parser("export-chat-sft-dataset", help="Export chat logs into an SFT-ready dataset JSONL")
+    export_chat_sft.add_argument("--log-dir", type=str, default="outputs/chat_logs")
+    export_chat_sft.add_argument("--output", type=str, default="outputs/chat_logs/chat_sft_dataset.jsonl")
+    export_chat_sft.add_argument("--include-failures", action="store_true")
     return parser
 
 
@@ -626,6 +786,15 @@ def main() -> None:
         return
     if args.command == "validate-candidates":
         run_candidate_long_validation(args.hands, args.seed, args.model_path, args.output_dir)
+        return
+    if args.command == "validate-preflop-v2":
+        run_preflop_v2_validation(args.hands, args.seed, args.export_dir, args.model_path)
+        return
+    if args.command == "validate-heads-up-postflop-v2":
+        run_heads_up_postflop_v2_validation(args.hands, args.seed, args.export_dir, args.model_path)
+        return
+    if args.command == "export-chat-sft-dataset":
+        run_chat_sft_export(args.log_dir, args.output, args.include_failures)
         return
 
     hands = getattr(args, "hands", 1)
