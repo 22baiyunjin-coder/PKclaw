@@ -17,7 +17,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import { type Locale, pickText, readClientLocale } from "@/lib/i18n"
-import { createClient } from "@/utils/supabase/client"
+import { createOptionalClient } from "@/utils/supabase/client"
 
 function headerCopy(locale: Locale) {
   return {
@@ -37,7 +37,7 @@ export function SiteHeaderClient() {
   const [user, setUser] = useState<any>(null)
   const [profile, setProfile] = useState<any>(null)
   const [locale, setLocale] = useState<Locale>("zh")
-  const supabase = createClient()
+  const supabase = createOptionalClient()
   const copy = headerCopy(locale)
 
   useEffect(() => {
@@ -45,6 +45,12 @@ export function SiteHeaderClient() {
   }, [])
 
   useEffect(() => {
+    if (!supabase) {
+      setUser(null)
+      setProfile(null)
+      return
+    }
+
     const getUser = async () => {
       const {
         data: { user },

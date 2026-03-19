@@ -6,7 +6,7 @@ import { useRouter, useSearchParams } from "next/navigation"
 import { ArrowLeft, Loader2, Mail } from "lucide-react"
 import { toast } from "sonner"
 
-import { createClient } from "@/utils/supabase/client"
+import { createOptionalClient } from "@/utils/supabase/client"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -23,7 +23,7 @@ import { type Locale, readClientLocale, pickText } from "@/lib/i18n"
 export default function LoginPage() {
   const router = useRouter()
   const searchParams = useSearchParams()
-  const supabase = createClient()
+  const supabase = createOptionalClient()
 
   const [locale, setLocale] = useState<Locale>("zh")
   const [loading, setLoading] = useState(false)
@@ -106,12 +106,20 @@ export default function LoginPage() {
         zh: "请直接登录，或换一个邮箱重新注册。",
         en: "Please log in directly or use a different email.",
       }),
+      unavailable: pickText(locale, {
+        zh: "当前公网演示环境未配置 Supabase，登录和注册暂时不可用。",
+        en: "Supabase is not configured for this public demo yet, so login and signup are temporarily unavailable.",
+      }),
     }),
     [locale],
   )
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault()
+    if (!supabase) {
+      toast.error(copy.loginFailed, { description: copy.unavailable })
+      return
+    }
     setLoading(true)
 
     const { error } = await supabase.auth.signInWithPassword({
@@ -132,6 +140,10 @@ export default function LoginPage() {
 
   const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault()
+    if (!supabase) {
+      toast.error(copy.registerFailed, { description: copy.unavailable })
+      return
+    }
     setLoading(true)
 
     const { data: emailExists, error: checkError } = await supabase.rpc(
@@ -192,6 +204,11 @@ export default function LoginPage() {
         </CardHeader>
 
         <CardContent>
+          {!supabase ? (
+            <div className="mb-4 rounded-xl border border-amber-500/20 bg-amber-500/10 px-4 py-3 text-sm text-amber-200">
+              {copy.unavailable}
+            </div>
+          ) : null}
           <Tabs
             value={activeTab}
             onValueChange={(value) => setActiveTab(value as "login" | "register")}

@@ -3,6 +3,7 @@ import { SiteHeader } from "@/components/layout/site-header"
 import { createClient } from "@/utils/supabase/server"
 import { getPersonas } from "@/app/actions/personas"
 import { getServerLocale } from "@/lib/i18n-server"
+import { hasSupabaseEnv } from "@/lib/supabase-env"
 import type { Viewport } from "next"
 
 export const viewport: Viewport = {
@@ -15,13 +16,15 @@ export const viewport: Viewport = {
 
 export default async function GamePage() {
   const locale = await getServerLocale()
-  const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
-
   let initialProfile = null
-  if (user) {
-    const { data } = await supabase.from('profiles').select('*').eq('id', user.id).single()
-    initialProfile = data
+  if (hasSupabaseEnv()) {
+    const supabase = await createClient()
+    const { data: { user } } = await supabase.auth.getUser()
+
+    if (user) {
+      const { data } = await supabase.from('profiles').select('*').eq('id', user.id).single()
+      initialProfile = data
+    }
   }
 
   // Fetch personas on server side to ensure they are available immediately

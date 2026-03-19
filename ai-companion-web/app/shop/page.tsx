@@ -15,7 +15,7 @@ import {
 } from "lucide-react"
 import { toast } from "sonner"
 
-import { createClient } from "@/utils/supabase/client"
+import { createOptionalClient } from "@/utils/supabase/client"
 import { Button } from "@/components/ui/button"
 import {
   Card,
@@ -37,7 +37,7 @@ import { type Locale, pickText, readClientLocale } from "@/lib/i18n"
 
 export default function ShopPage() {
   const router = useRouter()
-  const supabase = createClient()
+  const supabase = createOptionalClient()
 
   const [locale] = useState<Locale>(() => readClientLocale())
   const [loading, setLoading] = useState(false)
@@ -99,11 +99,20 @@ export default function ShopPage() {
       waiting: pickText(locale, { zh: "等待支付确认中...", en: "Waiting for payment confirmation..." }),
       expired: pickText(locale, { zh: "二维码时效", en: "QR Expires In" }),
       minutes: pickText(locale, { zh: "分钟", en: "minutes" }),
+      unavailable: pickText(locale, {
+        zh: "当前公网演示环境未配置 Supabase / 支付，充值功能暂时不可用。",
+        en: "Supabase and payment services are not configured for this public demo yet, so purchases are temporarily unavailable.",
+      }),
     }),
     [locale],
   )
 
   const handleBuyPackage = async (pkg: ChipsPackage) => {
+    if (!supabase) {
+      toast.error(copy.buyFailed, { description: copy.unavailable })
+      return
+    }
+
     setSelectedPackage(pkg)
     setLoading(true)
 
@@ -192,6 +201,11 @@ export default function ShopPage() {
           <h1 className="text-4xl font-bold text-white">{copy.title}</h1>
         </div>
         <p className="text-lg text-slate-400">{copy.subtitle}</p>
+        {!supabase ? (
+          <div className="mx-auto mt-4 max-w-3xl rounded-xl border border-amber-500/20 bg-amber-500/10 px-4 py-3 text-sm text-amber-200">
+            {copy.unavailable}
+          </div>
+        ) : null}
       </div>
 
       <div className="mx-auto grid max-w-6xl grid-cols-1 gap-4 sm:grid-cols-2 sm:gap-6 lg:grid-cols-3">

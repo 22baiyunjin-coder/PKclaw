@@ -6,7 +6,7 @@ import { useRouter } from "next/navigation"
 import { ArrowLeft, CheckCircle2, Loader2 } from "lucide-react"
 import { toast } from "sonner"
 
-import { createClient } from "@/utils/supabase/client"
+import { createOptionalClient } from "@/utils/supabase/client"
 import { Button } from "@/components/ui/button"
 import {
   Card,
@@ -21,7 +21,7 @@ import { type Locale, pickText, readClientLocale } from "@/lib/i18n"
 
 export default function UpdatePasswordPage() {
   const router = useRouter()
-  const supabase = createClient()
+  const supabase = createOptionalClient()
   const [locale] = useState<Locale>(() => readClientLocale())
   const [loading, setLoading] = useState(false)
   const [verifying, setVerifying] = useState(true)
@@ -68,11 +68,20 @@ export default function UpdatePasswordPage() {
       newPlaceholder: pickText(locale, { zh: "至少 6 个字符", en: "At least 6 characters" }),
       confirmPlaceholder: pickText(locale, { zh: "再次输入新密码", en: "Enter the new password again" }),
       submit: pickText(locale, { zh: "更新密码", en: "Update Password" }),
+      unavailable: pickText(locale, {
+        zh: "当前演示环境未配置 Supabase，现在无法更新密码。",
+        en: "Supabase is not configured for this demo yet, so password updates are unavailable.",
+      }),
     }),
     [locale],
   )
 
   useEffect(() => {
+    if (!supabase) {
+      setVerifying(false)
+      return
+    }
+
     const checkSession = async () => {
       const {
         data: { session },
@@ -88,10 +97,14 @@ export default function UpdatePasswordPage() {
     }
 
     void checkSession()
-  }, [copy.invalidDesc, copy.invalidTitle, router, supabase.auth])
+  }, [copy.invalidDesc, copy.invalidTitle, router, supabase])
 
   const handleUpdatePassword = async (e: React.FormEvent) => {
     e.preventDefault()
+    if (!supabase) {
+      toast.error(copy.failed, { description: copy.unavailable })
+      return
+    }
 
     if (newPassword !== confirmPassword) {
       toast.error(copy.mismatchTitle, { description: copy.mismatchDesc })
@@ -156,6 +169,11 @@ export default function UpdatePasswordPage() {
         </CardHeader>
 
         <CardContent>
+          {!supabase && !success ? (
+            <div className="mb-4 rounded-xl border border-amber-500/20 bg-amber-500/10 px-4 py-3 text-sm text-amber-200">
+              {copy.unavailable}
+            </div>
+          ) : null}
           {success ? (
             <div className="animate-in fade-in zoom-in flex flex-col items-center justify-center space-y-6 py-6 text-center duration-300">
               <div className="rounded-full bg-green-500/10 p-4">

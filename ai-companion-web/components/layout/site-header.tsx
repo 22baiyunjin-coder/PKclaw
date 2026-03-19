@@ -15,6 +15,7 @@ import {
 } from "@/components/ui/dropdown-menu"
 import { type Locale, pickText } from "@/lib/i18n"
 import { getServerLocale } from "@/lib/i18n-server"
+import { hasSupabaseEnv } from "@/lib/supabase-env"
 import { createClient } from "@/utils/supabase/server"
 
 function headerCopy(locale: Locale) {
@@ -35,19 +36,22 @@ export async function SiteHeader() {
   const locale = await getServerLocale()
   const copy = headerCopy(locale)
 
-  const supabase = await createClient()
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
-
   let profile = null
-  if (user) {
-    const { data } = await supabase
-      .from("profiles")
-      .select("*")
-      .eq("id", user.id)
-      .single()
-    profile = data
+  let user = null
+
+  if (hasSupabaseEnv()) {
+    const supabase = await createClient()
+    const { data } = await supabase.auth.getUser()
+    user = data.user
+
+    if (user) {
+      const { data: profileData } = await supabase
+        .from("profiles")
+        .select("*")
+        .eq("id", user.id)
+        .single()
+      profile = profileData
+    }
   }
 
   return (

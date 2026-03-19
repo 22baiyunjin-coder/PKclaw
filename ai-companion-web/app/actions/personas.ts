@@ -4,10 +4,20 @@ import { createClient } from '@/utils/supabase/server'
 import { Persona } from '@/lib/poker-types'
 import { revalidatePath } from 'next/cache'
 import { AI_PERSONAS } from '@/lib/ai-personas'
+import { hasSupabaseEnv } from '@/lib/supabase-env'
 
 // --- Marketplace & Library Actions ---
 
 export async function getMarketplacePersonas(sort: 'popular' | 'newest' = 'popular') {
+  if (!hasSupabaseEnv()) {
+    return AI_PERSONAS.map((persona) => ({
+      ...persona,
+      likes: 0,
+      is_published: false,
+      created_at: new Date(0).toISOString(),
+    })) as (Persona & { likes: number, is_published: boolean })[]
+  }
+
   const supabase = await createClient()
   
   let query = supabase
@@ -44,6 +54,7 @@ export async function getMarketplacePersonas(sort: 'popular' | 'newest' = 'popul
 }
 
 export async function publishPersona(id: string, isPublished: boolean) {
+  if (!hasSupabaseEnv()) throw new Error('Supabase is not configured')
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) throw new Error('Not authenticated')
@@ -69,6 +80,7 @@ export async function publishPersona(id: string, isPublished: boolean) {
 }
 
 export async function addToLibrary(personaId: string) {
+  if (!hasSupabaseEnv()) throw new Error('Supabase is not configured')
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) throw new Error('Not authenticated')
@@ -88,6 +100,7 @@ export async function addToLibrary(personaId: string) {
 }
 
 export async function removeFromLibrary(personaId: string) {
+  if (!hasSupabaseEnv()) throw new Error('Supabase is not configured')
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) throw new Error('Not authenticated')
@@ -104,6 +117,7 @@ export async function removeFromLibrary(personaId: string) {
 }
 
 export async function votePersona(personaId: string, voteType: 'like' | 'dislike') {
+  if (!hasSupabaseEnv()) throw new Error('Supabase is not configured')
   console.log(`[votePersona] Starting vote: ${voteType} for ${personaId}`)
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
@@ -188,6 +202,7 @@ export async function votePersona(personaId: string, voteType: 'like' | 'dislike
 }
 
 export async function getUserLibraryIds() {
+  if (!hasSupabaseEnv()) return []
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return []
@@ -203,6 +218,10 @@ export async function getUserLibraryIds() {
 // --- Modified Existing Actions ---
 
 export async function getPersonas(): Promise<Persona[]> {
+  if (!hasSupabaseEnv()) {
+    return AI_PERSONAS
+  }
+
   // This function now returns "My Available Personas" for the game setup
   // Includes: Default + Created + Collected
   const supabase = await createClient()
@@ -250,6 +269,7 @@ export async function getPersonas(): Promise<Persona[]> {
 }
 
 export async function createPersona(persona: Omit<Persona, 'id'>) {
+  if (!hasSupabaseEnv()) throw new Error('Supabase is not configured')
   const supabase = await createClient()
   
   const { data: { user } } = await supabase.auth.getUser()
@@ -274,6 +294,7 @@ export async function createPersona(persona: Omit<Persona, 'id'>) {
 }
 
 export async function updatePersona(id: string, updates: Partial<Persona>) {
+  if (!hasSupabaseEnv()) throw new Error('Supabase is not configured')
   const supabase = await createClient()
   
   const { data: { user } } = await supabase.auth.getUser()
@@ -306,6 +327,7 @@ export async function updatePersona(id: string, updates: Partial<Persona>) {
 }
 
 export async function deletePersona(id: string) {
+  if (!hasSupabaseEnv()) throw new Error('Supabase is not configured')
   const supabase = await createClient()
   
   const { data: { user } } = await supabase.auth.getUser()
@@ -336,6 +358,7 @@ export async function deletePersona(id: string) {
 }
 
 export async function togglePersonaActive(id: string, isActive: boolean) {
+    if (!hasSupabaseEnv()) throw new Error('Supabase is not configured')
     const supabase = await createClient()
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) throw new Error('Not authenticated')

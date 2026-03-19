@@ -1,7 +1,14 @@
 import { createServerClient } from '@supabase/ssr'
 import { NextResponse, type NextRequest } from 'next/server'
+import { hasSupabaseEnv } from '@/lib/supabase-env'
 
 export async function updateSession(request: NextRequest) {
+  if (!hasSupabaseEnv()) {
+    return NextResponse.next({
+      request,
+    })
+  }
+
   let supabaseResponse = NextResponse.next({
     request,
   })

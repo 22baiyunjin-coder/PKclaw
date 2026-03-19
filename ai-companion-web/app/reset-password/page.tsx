@@ -5,7 +5,7 @@ import { useMemo, useState } from "react"
 import { ArrowLeft, Loader2, Mail } from "lucide-react"
 import { toast } from "sonner"
 
-import { createClient } from "@/utils/supabase/client"
+import { createOptionalClient } from "@/utils/supabase/client"
 import { Button } from "@/components/ui/button"
 import {
   Card,
@@ -19,7 +19,7 @@ import { Label } from "@/components/ui/label"
 import { type Locale, pickText, readClientLocale } from "@/lib/i18n"
 
 export default function ResetPasswordPage() {
-  const supabase = createClient()
+  const supabase = createOptionalClient()
   const [locale] = useState<Locale>(() => readClientLocale())
   const [loading, setLoading] = useState(false)
   const [email, setEmail] = useState("")
@@ -55,12 +55,20 @@ export default function ResetPasswordPage() {
         zh: "请查收邮箱并点击链接重置密码。",
         en: "Please check your inbox and click the reset link.",
       }),
+      unavailable: pickText(locale, {
+        zh: "当前演示环境未配置 Supabase，重置密码暂时不可用。",
+        en: "Supabase is not configured for this demo yet, so password reset is currently unavailable.",
+      }),
     }),
     [locale],
   )
 
   const handleResetRequest = async (e: React.FormEvent) => {
     e.preventDefault()
+    if (!supabase) {
+      toast.error(copy.failed, { description: copy.unavailable })
+      return
+    }
     setLoading(true)
 
     const { error } = await supabase.auth.resetPasswordForEmail(email, {
@@ -97,6 +105,11 @@ export default function ResetPasswordPage() {
         </CardHeader>
 
         <CardContent>
+          {!supabase ? (
+            <div className="mb-4 rounded-xl border border-amber-500/20 bg-amber-500/10 px-4 py-3 text-sm text-amber-200">
+              {copy.unavailable}
+            </div>
+          ) : null}
           {emailSent ? (
             <div className="animate-in fade-in zoom-in flex flex-col items-center justify-center space-y-6 py-6 text-center duration-300">
               <div className="rounded-full bg-violet-500/10 p-4">

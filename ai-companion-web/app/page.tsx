@@ -14,14 +14,18 @@ import { SiteHeader } from "@/components/layout/site-header"
 import { Button } from "@/components/ui/button"
 import { pickText } from "@/lib/i18n"
 import { getServerLocale } from "@/lib/i18n-server"
+import { hasSupabaseEnv } from "@/lib/supabase-env"
 import { createClient } from "@/utils/supabase/server"
 
 export default async function LandingPage() {
   const locale = await getServerLocale()
-  const supabase = await createClient()
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
+  let user = null
+
+  if (hasSupabaseEnv()) {
+    const supabase = await createClient()
+    const { data } = await supabase.auth.getUser()
+    user = data.user
+  }
 
   const copy = {
     badge: "Beta v1.0 Live",

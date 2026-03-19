@@ -23,36 +23,11 @@ import { ScrollArea } from "@/components/ui/scroll-area"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { pickText } from "@/lib/i18n"
 import { getServerLocale } from "@/lib/i18n-server"
+import { hasSupabaseEnv } from "@/lib/supabase-env"
 import { createClient } from "@/utils/supabase/server"
 
 export default async function ProfilePage() {
   const locale = await getServerLocale()
-  const supabase = await createClient()
-
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
-
-  if (!user) {
-    return redirect("/login")
-  }
-
-  const { data: profile } = await supabase
-    .from("profiles")
-    .select("*")
-    .eq("id", user.id)
-    .single()
-
-  const { data: history } = await supabase
-    .from("game_history")
-    .select("*")
-    .eq("user_id", user.id)
-    .order("played_at", { ascending: false })
-    .limit(100)
-
-  const totalGames = history?.length || 0
-  const totalWins = history?.filter((item) => item.profit > 0).length || 0
-  const winRate = totalGames > 0 ? ((totalWins / totalGames) * 100).toFixed(1) : "0.0"
 
   const copy = {
     back: pickText(locale, { zh: "返回牌桌", en: "Back to Table" }),
@@ -85,7 +60,65 @@ export default async function ProfilePage() {
     detail: pickText(locale, { zh: "详情", en: "Detail" }),
     view: pickText(locale, { zh: "查看", en: "View" }),
     emptyHistory: pickText(locale, { zh: "暂无记录", en: "No records yet" }),
+    unavailable: pickText(locale, {
+      zh: "当前公网演示环境未配置 Supabase，所以个人中心、战绩和充值功能暂时不可用。",
+      en: "Supabase is not configured for this public demo yet, so profile, results, and top-up features are temporarily unavailable.",
+    }),
   }
+
+  if (!hasSupabaseEnv()) {
+    return (
+      <div className="min-h-screen bg-slate-950 p-4 text-slate-100 md:p-8">
+        <div className="mx-auto max-w-4xl space-y-6">
+          <div className="flex items-center justify-between">
+            <Link href="/">
+              <Button variant="ghost" className="text-slate-400 hover:text-white">
+                <ArrowLeft className="mr-2 h-4 w-4" />
+                {copy.back}
+              </Button>
+            </Link>
+            <h1 className="text-2xl font-bold text-violet-400">{copy.title}</h1>
+            <div className="w-[100px]" />
+          </div>
+
+          <Card className="border-amber-500/20 bg-amber-500/10 text-amber-100">
+            <CardHeader>
+              <CardTitle>{copy.title}</CardTitle>
+              <CardDescription className="text-amber-200/80">
+                {copy.unavailable}
+              </CardDescription>
+            </CardHeader>
+          </Card>
+        </div>
+      </div>
+    )
+  }
+
+  const supabase = await createClient()
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+
+  if (!user) {
+    return redirect("/login")
+  }
+
+  const { data: profile } = await supabase
+    .from("profiles")
+    .select("*")
+    .eq("id", user.id)
+    .single()
+
+  const { data: history } = await supabase
+    .from("game_history")
+    .select("*")
+    .eq("user_id", user.id)
+    .order("played_at", { ascending: false })
+    .limit(100)
+
+  const totalGames = history?.length || 0
+  const totalWins = history?.filter((item) => item.profit > 0).length || 0
+  const winRate = totalGames > 0 ? ((totalWins / totalGames) * 100).toFixed(1) : "0.0"
 
   return (
     <div className="min-h-screen bg-slate-950 p-4 text-slate-100 md:p-8">

@@ -2,6 +2,7 @@
 
 import { createClient } from '@/utils/supabase/server'
 import { revalidatePath } from 'next/cache'
+import { hasSupabaseEnv } from '@/lib/supabase-env'
 
 export interface LeaderboardEntry {
   id: string
@@ -30,6 +31,10 @@ export async function updateLeaderboard(data: {
   stats?: any
   totalHands: number
 }): Promise<{ success: boolean; error?: string }> {
+  if (!hasSupabaseEnv()) {
+    return { success: false, error: 'Supabase is not configured' }
+  }
+
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
 
@@ -105,6 +110,10 @@ export async function updateLeaderboard(data: {
  * 获取排行榜前N名
  */
 export async function getLeaderboard(limit: number = 100): Promise<LeaderboardEntry[]> {
+  if (!hasSupabaseEnv()) {
+    return []
+  }
+
   const supabase = await createClient()
 
   try {
@@ -127,6 +136,10 @@ export async function getLeaderboard(limit: number = 100): Promise<LeaderboardEn
  * 获取当前用户的排行榜排名和数据
  */
 export async function getMyLeaderboardEntry(): Promise<LeaderboardEntry | null> {
+  if (!hasSupabaseEnv()) {
+    return null
+  }
+
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
 
@@ -156,6 +169,10 @@ export async function getMyLeaderboardEntry(): Promise<LeaderboardEntry | null> 
  * 获取用户在排行榜中的排名位置
  */
 export async function getMyRank(): Promise<number | null> {
+  if (!hasSupabaseEnv()) {
+    return null
+  }
+
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
 
