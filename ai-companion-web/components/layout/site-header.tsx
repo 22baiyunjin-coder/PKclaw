@@ -121,7 +121,7 @@ export async function SiteHeader() {
 
                   <DropdownMenuItem asChild>
                     <Link
-                      href="/profile"
+                      href="/hands"
                       className="cursor-pointer focus:bg-slate-800 focus:text-white"
                     >
                       <User className="mr-2 h-4 w-4" />

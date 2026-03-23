@@ -21,6 +21,7 @@ import {
 import { cn } from "@/lib/utils"
 import { getAIDecision } from "@/app/actions/poker-ai"
 import { getUserProfile, saveGameResult } from "@/app/actions/game-history"
+import { saveHandRecord } from "@/app/actions/hand-records"
 import { getPersonas } from "@/app/actions/personas"
 import { toast } from "sonner"
 import { SessionScoreboard } from "@/components/session-scoreboard"
@@ -31,6 +32,7 @@ import { GameChatPanel } from "@/components/game-chat-panel"
 import { ChevronRight, Settings2, LogOut, Trophy, Coins, User, Activity } from "lucide-react"
 import { AI_PERSONAS as DEFAULT_PERSONAS } from "@/lib/ai-personas"
 import { playSound } from "@/lib/audio"
+import { buildPlayedHandRecordInput } from "@/lib/played-hand-record"
 import { GameSetup } from "@/components/game-setup"
 import { type Locale, pickText, readClientLocale } from "@/lib/i18n"
 import type {
@@ -1001,6 +1003,10 @@ export function PokerTable({
 
     const decision = await Promise.race([decisionPromise, timeoutPromise])
 
+    if (decision?.source && decision.source !== "pkclaw_local") {
+        console.warn("Bot decision did not come from PKclaw local engine:", decision.source, decision.reason)
+    }
+
     let action = decision.action
         let amount = decision.amount || 0
 
@@ -1245,6 +1251,8 @@ export function PokerTable({
             }
 
             // Update Session Stats（所有发到手的牌都算一局）
+            const handRecordInput = buildPlayedHandRecordInput(state)
+
             setSessionStats(prev => ({
                 ...prev,
                 handsPlayed: prev.handsPlayed + 1,
@@ -1257,6 +1265,14 @@ export function PokerTable({
                     console.log("Game saved. New Balance:", newChips)
                 }
             })
+
+            if (handRecordInput) {
+                saveHandRecord(handRecordInput).then((result) => {
+                    if (!result.ok && result.message) {
+                        console.warn("Hand record save skipped:", result.message)
+                    }
+                })
+            }
         }
       }
 

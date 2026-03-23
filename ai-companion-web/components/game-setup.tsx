@@ -60,6 +60,8 @@ export function GameSetup({ personas, locale, onStart }: GameSetupProps) {
     [locale],
   )
 
+  copy.training = pickText(locale, { zh: "手牌复盘模式", en: "Hand Review Mode" })
+
   const togglePersona = (id: string) => {
     setSelectedIds((prev) => {
       if (prev.includes(id)) {
@@ -77,30 +79,7 @@ export function GameSetup({ personas, locale, onStart }: GameSetupProps) {
     })
   }
 
-  const handlePresetSelect = (mode: "training" | "party") => {
-    if (mode === "training") {
-      const pros = personas.filter((persona) =>
-        ["gto_master", "high_stakes_pro", "teacher_liu", "calculator_li"].includes(
-          persona.id,
-        ),
-      )
-
-      if (pros.length === 0) {
-        return
-      }
-
-      const selected: string[] = []
-      let index = 0
-      while (selected.length < 7) {
-        selected.push(pros[index % pros.length].id)
-        index += 1
-      }
-
-      setSelectedIds(selected)
-      onStart(selected)
-      return
-    }
-
+  const handlePresetSelect = (mode: "party") => {
     const funs = personas.filter((persona) =>
       ["river_ambassador", "evil_kuromi", "od_sao_nan", "cat_17"].includes(persona.id),
     )
@@ -132,14 +111,15 @@ export function GameSetup({ personas, locale, onStart }: GameSetupProps) {
           </CardDescription>
 
           <div className="mt-6 flex justify-center gap-4">
-            <Button
-              variant="outline"
-              onClick={() => handlePresetSelect("training")}
-              className="border-slate-700 bg-slate-950 hover:border-indigo-500 hover:bg-indigo-900/20 hover:text-indigo-400"
-            >
-              <Zap className="mr-2 h-4 w-4" />
-              {copy.training}
-            </Button>
+            <Link href="/hands">
+              <Button
+                variant="outline"
+                className="border-slate-700 bg-slate-950 hover:border-indigo-500 hover:bg-indigo-900/20 hover:text-indigo-400"
+              >
+                <Zap className="mr-2 h-4 w-4" />
+                {copy.training}
+              </Button>
+            </Link>
 
             <Button
               variant="outline"

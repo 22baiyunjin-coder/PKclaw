@@ -1,8 +1,11 @@
 'use server'
 
+import { hasSupabaseEnv } from '@/lib/supabase-env'
 import { createClient } from '@/utils/supabase/server'
 
 export async function saveGameResult(profit: number, handDetails: any) {
+  if (!hasSupabaseEnv()) return null
+
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   
@@ -25,6 +28,8 @@ export async function saveGameResult(profit: number, handDetails: any) {
 }
 
 export async function getUserProfile() {
+  if (!hasSupabaseEnv()) return null
+
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   

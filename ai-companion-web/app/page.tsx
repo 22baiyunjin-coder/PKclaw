@@ -160,6 +160,16 @@ export default async function LandingPage() {
                       </Button>
                     </Link>
 
+                    <Link href="/hands">
+                      <Button
+                        size="lg"
+                        variant="outline"
+                        className="h-16 rounded-2xl border-indigo-500/30 px-10 text-xl text-indigo-300 hover:bg-indigo-950/30 hover:text-indigo-200"
+                      >
+                        Hand Library
+                      </Button>
+                    </Link>
+
                     <Link href="/marketplace">
                       <Button
                         size="lg"

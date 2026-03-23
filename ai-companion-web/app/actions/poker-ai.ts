@@ -32,11 +32,18 @@ interface AIRequest {
   actionLog?: string[]
 }
 
+type DecisionSource =
+  | "pkclaw_local"
+  | "remote_model"
+  | "heuristic_fallback"
+  | "safe_fallback"
+
 interface AIResponse {
   action: "fold" | "check" | "call" | "raise" | "all-in"
   amount?: number
   reason: string
   message?: string
+  source: DecisionSource
 }
 
 interface LocalDecisionResponse {
@@ -174,6 +181,7 @@ function normalizeAction(
   data: AIRequest,
   reason: string,
   message?: string,
+  source: DecisionSource = "pkclaw_local",
 ): AIResponse {
   const normalized =
     rawAction === "bet"
@@ -202,6 +210,7 @@ function normalizeAction(
       amount: normalizeAggressiveAmount("raise", amount, data),
       reason,
       message,
+      source,
     }
   }
 
@@ -210,12 +219,235 @@ function normalizeAction(
     amount,
     reason,
     message,
+    source,
   }
 }
 
+function rankToValue(rank: string): number {
+  if (rank === "A") return 14
+  if (rank === "K") return 13
+  if (rank === "Q") return 12
+  if (rank === "J") return 11
+  if (rank === "10") return 10
+  return Number(rank)
+}
+
+function hasFlushDraw(cards: Card[]): boolean {
+  const suitCounts = new Map<string, number>()
+
+  for (const card of cards) {
+    suitCounts.set(card.suit, (suitCounts.get(card.suit) || 0) + 1)
+  }
+
+  return Array.from(suitCounts.values()).some((count) => count >= 4)
+}
+
+function hasStraightPressure(cards: Card[]): boolean {
+  const values = Array.from(
+    new Set(
+      cards.flatMap((card) => {
+        const value = rankToValue(card.rank)
+        return value === 14 ? [14, 1] : [value]
+      }),
+    ),
+  ).sort((left, right) => left - right)
+
+  let longestRun = 1
+  let currentRun = 1
+
+  for (let index = 1; index < values.length; index += 1) {
+    if (values[index] === values[index - 1] + 1) {
+      currentRun += 1
+      longestRun = Math.max(longestRun, currentRun)
+    } else {
+      currentRun = 1
+    }
+  }
+
+  return longestRun >= 4
+}
+
+function buildSafeFallbackDecision(data: AIRequest, reason: string): AIResponse {
+  if (data.validActions.includes("check")) {
+    return {
+      action: "check",
+      reason,
+      message: buildTableMessage(data.locale, "check", data.persona),
+      source: "safe_fallback",
+    }
+  }
+
+  if (
+    data.validActions.includes("call") &&
+    data.currentBet - data.playerBet <= data.pot * 0.18
+  ) {
+    return {
+      action: "call",
+      reason,
+      message: buildTableMessage(data.locale, "call", data.persona),
+      source: "safe_fallback",
+    }
+  }
+
+  return {
+    action: "fold",
+    reason,
+    message: buildTableMessage(data.locale, "fold", data.persona),
+    source: "safe_fallback",
+  }
+}
+
+function buildHeuristicFallbackDecision(data: AIRequest): AIResponse {
+  const toCall = Math.max(0, data.currentBet - data.playerBet)
+  const canCheck = data.validActions.includes("check")
+  const canCall = data.validActions.includes("call")
+  const canRaise = data.validActions.includes("raise")
+  const cheapContinue =
+    toCall === 0 ||
+    toCall <= Math.max(20, data.pot * 0.22, data.playerChips * 0.12)
+
+  if (data.playerCards.length < 2) {
+    return buildSafeFallbackDecision(
+      data,
+      "Safe fallback: missing hero cards for heuristic decision",
+    )
+  }
+
+  if (data.phase === "preflop") {
+    const [left, right] = data.playerCards
+    const leftValue = rankToValue(left.rank)
+    const rightValue = rankToValue(right.rank)
+    const high = Math.max(leftValue, rightValue)
+    const low = Math.min(leftValue, rightValue)
+    const isPair = leftValue === rightValue
+    const isSuited = left.suit === right.suit
+    const isConnected = Math.abs(leftValue - rightValue) <= 1
+    const isBroadwayHeavy = low >= 10
+    const hasAce = high === 14
+    const isPremium = isPair && high >= 10
+    const isPlayable =
+      isPremium ||
+      isBroadwayHeavy ||
+      (hasAce && isSuited) ||
+      (isConnected && isSuited && high >= 9)
+
+    if (isPremium && canRaise) {
+      return {
+        action: "raise",
+        amount: normalizeAggressiveAmount("raise", data.currentBet * 2.5, data),
+        reason:
+          "Heuristic fallback: premium preflop continue while PKclaw is unavailable",
+        message: buildTableMessage(data.locale, "raise", data.persona),
+        source: "heuristic_fallback",
+      }
+    }
+
+    if (isPlayable) {
+      const action = canCheck ? "check" : canCall ? "call" : "fold"
+      return {
+        action,
+        reason:
+          "Heuristic fallback: playable preflop continue while PKclaw is unavailable",
+        message: buildTableMessage(data.locale, action, data.persona),
+        source: "heuristic_fallback",
+      }
+    }
+
+    if (canCheck) {
+      return {
+        action: "check",
+        reason:
+          "Heuristic fallback: free preflop continue while PKclaw is unavailable",
+        message: buildTableMessage(data.locale, "check", data.persona),
+        source: "heuristic_fallback",
+      }
+    }
+
+    return buildSafeFallbackDecision(
+      data,
+      "Safe fallback: weak preflop hand while PKclaw is unavailable",
+    )
+  }
+
+  const allCards = [...data.playerCards, ...data.communityCards]
+  const rankCounts = new Map<number, number>()
+
+  for (const card of allCards) {
+    const value = rankToValue(card.rank)
+    rankCounts.set(value, (rankCounts.get(value) || 0) + 1)
+  }
+
+  const duplicateCounts = Array.from(rankCounts.values()).sort((left, right) => right - left)
+  const hasTripsOrBetter = duplicateCounts[0] >= 3
+  const pairCount = duplicateCounts.filter((count) => count >= 2).length
+  const hasStrongMade = hasTripsOrBetter || pairCount >= 2
+  const hasOnePair = duplicateCounts[0] === 2
+  const hasDraw = hasFlushDraw(allCards) || hasStraightPressure(allCards)
+
+  if (hasStrongMade && canRaise) {
+    return {
+      action: "raise",
+      amount: normalizeAggressiveAmount(
+        "raise",
+        Math.max(data.currentBet * 2.2, data.pot * 0.65),
+        data,
+      ),
+      reason:
+        "Heuristic fallback: made hand pressure while PKclaw is unavailable",
+      message: buildTableMessage(data.locale, "raise", data.persona),
+      source: "heuristic_fallback",
+    }
+  }
+
+  if (hasStrongMade || hasOnePair || hasDraw) {
+    const action = canCheck ? "check" : canCall && cheapContinue ? "call" : "fold"
+    return {
+      action,
+      reason:
+        "Heuristic fallback: continue with showdown value or draw while PKclaw is unavailable",
+      message: buildTableMessage(data.locale, action, data.persona),
+      source: "heuristic_fallback",
+    }
+  }
+
+  if (canCheck) {
+    return {
+      action: "check",
+      reason:
+        "Heuristic fallback: take the free card while PKclaw is unavailable",
+      message: buildTableMessage(data.locale, "check", data.persona),
+      source: "heuristic_fallback",
+    }
+  }
+
+  if (canCall && cheapContinue) {
+    return {
+      action: "call",
+      reason:
+        "Heuristic fallback: cheap continue while PKclaw is unavailable",
+      message: buildTableMessage(data.locale, "call", data.persona),
+      source: "heuristic_fallback",
+    }
+  }
+
+  return buildSafeFallbackDecision(
+    data,
+    "Safe fallback: no profitable continue found while PKclaw is unavailable",
+  )
+}
+
 async function tryPkclawDecision(data: AIRequest): Promise<AIResponse | null> {
+  const configuredBaseUrl = process.env.PKCLAW_API_BASE_URL?.trim()
   const baseUrl =
-    process.env.PKCLAW_API_BASE_URL?.trim() || "http://127.0.0.1:8000"
+    configuredBaseUrl ||
+    (process.env.NODE_ENV === "production" ? null : "http://127.0.0.1:8000")
+
+  if (!baseUrl) {
+    console.warn(
+      "[PKclaw] PKCLAW_API_BASE_URL is missing in production. Skipping local decision bridge.",
+    )
+    return null
+  }
 
   const heroName = data.persona?.name || "Bot"
   const payload = {
@@ -278,6 +510,9 @@ async function tryPkclawDecision(data: AIRequest): Promise<AIResponse | null> {
     })
 
     if (!response.ok) {
+      console.warn(
+        `[PKclaw] Local decision bridge returned ${response.status} ${response.statusText}.`,
+      )
       return null
     }
 
@@ -306,8 +541,10 @@ async function tryPkclawDecision(data: AIRequest): Promise<AIResponse | null> {
       data,
       reason,
       message,
+      "pkclaw_local",
     )
-  } catch {
+  } catch (error) {
+    console.warn("[PKclaw] Local decision bridge request failed.", error)
     return null
   }
 }
@@ -408,36 +645,11 @@ async function tryRemoteModelDecision(data: AIRequest): Promise<AIResponse | nul
       data,
       payload.reason || "Remote model decision",
       payload.message,
+      "remote_model",
     )
-  } catch {
+  } catch (error) {
+    console.warn("[PKclaw] Remote model decision failed.", error)
     return null
-  }
-}
-
-function buildFallbackDecision(data: AIRequest): AIResponse {
-  if (data.validActions.includes("check")) {
-    return {
-      action: "check",
-      reason: data.locale === "zh" ? "安全降级到过牌" : "Safe fallback to check",
-      message: buildTableMessage(data.locale, "check", data.persona),
-    }
-  }
-
-  if (
-    data.validActions.includes("call") &&
-    data.currentBet - data.playerBet <= data.pot * 0.18
-  ) {
-    return {
-      action: "call",
-      reason: data.locale === "zh" ? "安全降级到跟注" : "Safe fallback to call",
-      message: buildTableMessage(data.locale, "call", data.persona),
-    }
-  }
-
-  return {
-    action: "fold",
-    reason: data.locale === "zh" ? "安全降级到弃牌" : "Safe fallback to fold",
-    message: buildTableMessage(data.locale, "fold", data.persona),
   }
 }
 
@@ -452,5 +664,13 @@ export async function getAIDecision(data: AIRequest): Promise<AIResponse> {
     return remoteDecision
   }
 
-  return buildFallbackDecision(data)
+  try {
+    return buildHeuristicFallbackDecision(data)
+  } catch (error) {
+    console.warn("[PKclaw] Heuristic fallback failed.", error)
+    return buildSafeFallbackDecision(
+      data,
+      "Safe fallback: PKclaw, remote model, and heuristic decision all failed",
+    )
+  }
 }
