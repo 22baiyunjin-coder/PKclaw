@@ -3,6 +3,7 @@ import { SiteHeader } from "@/components/layout/site-header"
 import { createClient } from "@/utils/supabase/server"
 import { getPersonas } from "@/app/actions/personas"
 import { getServerLocale } from "@/lib/i18n-server"
+import { ensureProfileForUser } from "@/lib/profile-bootstrap"
 import { hasSupabaseEnv } from "@/lib/supabase-env"
 import type { Viewport } from "next"
 
@@ -22,8 +23,7 @@ export default async function GamePage() {
     const { data: { user } } = await supabase.auth.getUser()
 
     if (user) {
-      const { data } = await supabase.from('profiles').select('*').eq('id', user.id).single()
-      initialProfile = data
+      initialProfile = await ensureProfileForUser(supabase, user)
     }
   }
 

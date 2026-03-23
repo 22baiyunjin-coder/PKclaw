@@ -54,7 +54,7 @@ export async function getMarketplacePersonas(sort: 'popular' | 'newest' = 'popul
 }
 
 export async function publishPersona(id: string, isPublished: boolean) {
-  if (!hasSupabaseEnv()) throw new Error('Supabase is not configured')
+  if (!hasSupabaseEnv()) return
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) throw new Error('Not authenticated')
@@ -80,7 +80,7 @@ export async function publishPersona(id: string, isPublished: boolean) {
 }
 
 export async function addToLibrary(personaId: string) {
-  if (!hasSupabaseEnv()) throw new Error('Supabase is not configured')
+  if (!hasSupabaseEnv()) return
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) throw new Error('Not authenticated')
@@ -100,7 +100,7 @@ export async function addToLibrary(personaId: string) {
 }
 
 export async function removeFromLibrary(personaId: string) {
-  if (!hasSupabaseEnv()) throw new Error('Supabase is not configured')
+  if (!hasSupabaseEnv()) return
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) throw new Error('Not authenticated')
@@ -117,7 +117,7 @@ export async function removeFromLibrary(personaId: string) {
 }
 
 export async function votePersona(personaId: string, voteType: 'like' | 'dislike') {
-  if (!hasSupabaseEnv()) throw new Error('Supabase is not configured')
+  if (!hasSupabaseEnv()) return
   console.log(`[votePersona] Starting vote: ${voteType} for ${personaId}`)
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()

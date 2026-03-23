@@ -1,5 +1,6 @@
 'use server'
 
+import { ensureProfileForUser } from '@/lib/profile-bootstrap'
 import { hasSupabaseEnv } from '@/lib/supabase-env'
 import { createClient } from '@/utils/supabase/server'
 
@@ -34,12 +35,6 @@ export async function getUserProfile() {
   const { data: { user } } = await supabase.auth.getUser()
   
   if (!user) return null
-  
-  const { data: profile } = await supabase
-    .from('profiles')
-    .select('*')
-    .eq('id', user.id)
-    .single()
-    
-  return profile
+
+  return ensureProfileForUser(supabase, user)
 }

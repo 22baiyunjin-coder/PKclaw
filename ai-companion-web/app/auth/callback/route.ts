@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server"
 
+import { ensureProfileForUser } from "@/lib/profile-bootstrap"
 import { hasSupabaseEnv } from "@/lib/supabase-env"
 import { createClient } from "@/utils/supabase/server"
 
@@ -21,6 +22,14 @@ export async function GET(request: Request) {
     })
 
     if (!error) {
+      const {
+        data: { user },
+      } = await supabase.auth.getUser()
+
+      if (user) {
+        await ensureProfileForUser(supabase, user)
+      }
+
       if (type === "recovery") {
         return NextResponse.redirect(`${origin}/update-password`)
       }
@@ -35,6 +44,14 @@ export async function GET(request: Request) {
     const { error } = await supabase.auth.exchangeCodeForSession(code)
 
     if (!error) {
+      const {
+        data: { user },
+      } = await supabase.auth.getUser()
+
+      if (user) {
+        await ensureProfileForUser(supabase, user)
+      }
+
       return NextResponse.redirect(`${origin}${next}`)
     }
   }

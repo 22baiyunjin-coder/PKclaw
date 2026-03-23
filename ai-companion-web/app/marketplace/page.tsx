@@ -37,6 +37,7 @@ import {
 } from "@/app/actions/personas"
 import { type Locale, pickText, readClientLocale } from "@/lib/i18n"
 import { Persona } from "@/lib/poker-types"
+import { hasSupabaseEnv } from "@/lib/supabase-env"
 
 type MarketplacePersona = Persona & {
   likes: number
@@ -91,6 +92,10 @@ export default function MarketplacePage() {
       added: pickText(locale, { zh: "已收藏", en: "Saved" }),
       addToLibrary: pickText(locale, { zh: "添加到角色库", en: "Add to Library" }),
       beta: "Beta",
+      demoUnavailable: pickText(locale, {
+        zh: "当前演示环境还没接上数据库，这个角色库动作暂时不可用。",
+        en: "This public demo is not connected to the database yet, so this library action is unavailable.",
+      }),
     }),
     [locale],
   )
@@ -117,6 +122,11 @@ export default function MarketplacePage() {
   }
 
   const handleAdd = async (id: string) => {
+    if (!hasSupabaseEnv()) {
+      toast.info(copy.demoUnavailable)
+      return
+    }
+
     setProcessingId(id)
     try {
       await addToLibrary(id)
@@ -131,6 +141,11 @@ export default function MarketplacePage() {
   }
 
   const handleRemove = async (id: string) => {
+    if (!hasSupabaseEnv()) {
+      toast.info(copy.demoUnavailable)
+      return
+    }
+
     setProcessingId(id)
     try {
       await removeFromLibrary(id)
@@ -145,6 +160,11 @@ export default function MarketplacePage() {
   }
 
   const handleVote = async (id: string, type: "like" | "dislike") => {
+    if (!hasSupabaseEnv()) {
+      toast.info(copy.demoUnavailable)
+      return
+    }
+
     try {
       await votePersona(id, type)
       toast.success(copy.voteSuccess)

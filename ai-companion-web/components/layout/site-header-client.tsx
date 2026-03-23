@@ -17,6 +17,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import { type Locale, pickText, readClientLocale } from "@/lib/i18n"
+import { ensureProfileForUser } from "@/lib/profile-bootstrap"
 import { createOptionalClient } from "@/utils/supabase/client"
 
 function headerCopy(locale: Locale) {
@@ -58,12 +59,8 @@ export function SiteHeaderClient() {
       setUser(user)
 
       if (user) {
-        const { data } = await supabase
-          .from("profiles")
-          .select("*")
-          .eq("id", user.id)
-          .single()
-        setProfile(data)
+        const hydratedProfile = await ensureProfileForUser(supabase, user)
+        setProfile(hydratedProfile)
       }
     }
 

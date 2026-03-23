@@ -4,9 +4,11 @@ import Link from "next/link"
 import { useMemo, useState } from "react"
 import {
   Activity,
+  Bot,
   Check,
   Home,
   Play,
+  Plus,
   Settings2,
   Users,
   Zap,
@@ -61,6 +63,11 @@ export function GameSetup({ personas, locale, onStart }: GameSetupProps) {
   )
 
   copy.training = pickText(locale, { zh: "手牌复盘模式", en: "Hand Review Mode" })
+
+  const createPersonaLabel = pickText(locale, {
+    zh: "创建角色",
+    en: "Create Persona",
+  })
 
   const togglePersona = (id: string) => {
     setSelectedIds((prev) => {
@@ -143,12 +150,26 @@ export function GameSetup({ personas, locale, onStart }: GameSetupProps) {
         </CardHeader>
 
         <CardContent className="p-6">
-          <div className="mb-4 flex items-center justify-between">
-            <h3 className="flex items-center gap-2 font-bold text-slate-300">
+          <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <div className="flex items-center gap-2 font-bold text-slate-300">
               <Settings2 className="h-4 w-4" />
-              {copy.customSelection} ({selectedIds.length}/8)
-            </h3>
-            <span className="text-xs text-slate-500">{copy.tapHint}</span>
+              <h3>
+                {copy.customSelection} ({selectedIds.length}/8)
+              </h3>
+            </div>
+            <div className="flex items-center justify-between gap-3 sm:justify-end">
+              <span className="text-xs text-slate-500">{copy.tapHint}</span>
+              <Link href="/personas">
+                <Button
+                  variant="outline"
+                  className="h-10 rounded-xl border-violet-500/35 bg-violet-500/10 px-4 text-sm font-semibold text-violet-100 shadow-[0_0_18px_rgba(139,92,246,0.12)] hover:border-violet-400 hover:bg-violet-500/20 hover:text-white"
+                >
+                  <Bot className="mr-2 h-4 w-4" />
+                  <Plus className="mr-2 h-3.5 w-3.5" />
+                  {createPersonaLabel}
+                </Button>
+              </Link>
+            </div>
           </div>
 
           <ScrollArea className="h-[400px] pr-4">

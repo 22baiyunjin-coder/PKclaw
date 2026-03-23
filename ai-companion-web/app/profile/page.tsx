@@ -23,6 +23,7 @@ import { ScrollArea } from "@/components/ui/scroll-area"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { pickText } from "@/lib/i18n"
 import { getServerLocale } from "@/lib/i18n-server"
+import { ensureProfileForUser } from "@/lib/profile-bootstrap"
 import { hasSupabaseEnv } from "@/lib/supabase-env"
 import { createClient } from "@/utils/supabase/server"
 
@@ -103,11 +104,7 @@ export default async function ProfilePage() {
     return redirect("/login")
   }
 
-  const { data: profile } = await supabase
-    .from("profiles")
-    .select("*")
-    .eq("id", user.id)
-    .single()
+  const profile = await ensureProfileForUser(supabase, user)
 
   const { data: history } = await supabase
     .from("game_history")

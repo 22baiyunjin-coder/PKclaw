@@ -15,6 +15,7 @@ import {
 } from "@/components/ui/dropdown-menu"
 import { type Locale, pickText } from "@/lib/i18n"
 import { getServerLocale } from "@/lib/i18n-server"
+import { ensureProfileForUser } from "@/lib/profile-bootstrap"
 import { hasSupabaseEnv } from "@/lib/supabase-env"
 import { createClient } from "@/utils/supabase/server"
 
@@ -45,12 +46,7 @@ export async function SiteHeader() {
     user = data.user
 
     if (user) {
-      const { data: profileData } = await supabase
-        .from("profiles")
-        .select("*")
-        .eq("id", user.id)
-        .single()
-      profile = profileData
+      profile = await ensureProfileForUser(supabase, user)
     }
   }
 

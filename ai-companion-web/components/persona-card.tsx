@@ -28,6 +28,7 @@ import {
 } from "@/components/ui/card"
 import { type Locale, pickText, readClientLocale } from "@/lib/i18n"
 import { Persona } from "@/lib/poker-types"
+import { hasSupabaseEnv } from "@/lib/supabase-env"
 import { cn } from "@/lib/utils"
 
 interface PersonaCardProps {
@@ -85,7 +86,17 @@ export function PersonaCard({ persona, currentUserId }: PersonaCardProps) {
     [locale],
   )
 
+  const demoUnavailableMessage = pickText(locale, {
+    zh: "当前演示环境还没接上数据库，这个角色动作暂时不可用。",
+    en: "This public demo is not connected to the database yet, so persona actions are unavailable.",
+  })
+
   const handlePublishToggle = async () => {
+    if (!hasSupabaseEnv()) {
+      toast.info(demoUnavailableMessage)
+      return
+    }
+
     const nextState = !isPublished
     setIsPublished(nextState)
 
