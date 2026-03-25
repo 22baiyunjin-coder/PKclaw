@@ -38,12 +38,19 @@ export default async function PersonasPage() {
     }),
   }
 
+  const TopBar = () => (
+    <div className="flex h-14 shrink-0 items-center border-b border-zinc-800 px-6">
+      <h1 className="text-sm font-medium text-zinc-400">角色工坊</h1>
+    </div>
+  )
+
   if (!hasSupabaseEnv()) {
     return (
-      <div className="min-h-screen bg-slate-950 p-4 text-slate-100 md:p-8">
-        <div className="mx-auto max-w-6xl space-y-8">
-          <div className="flex flex-col items-center justify-between gap-4 md:flex-row">
-            <div className="flex w-full items-center gap-4 md:w-auto">
+      <div className="flex h-full flex-col bg-slate-950 text-slate-100">
+        <TopBar />
+        <div className="flex-1 overflow-y-auto p-4 md:p-6">
+          <div className="mx-auto max-w-6xl space-y-8">
+            <div className="flex items-center gap-4">
               <Link href="/">
                 <Button variant="ghost" className="text-slate-400 hover:text-white">
                   <ArrowLeft className="mr-2 h-4 w-4" />
@@ -114,17 +121,11 @@ export default async function PersonasPage() {
   }
 
   return (
-    <div className="min-h-screen bg-slate-950 p-4 text-slate-100 md:p-8">
-      <div className="mx-auto max-w-6xl space-y-8">
-        <div className="flex flex-col items-center justify-between gap-4 md:flex-row">
-          <div className="flex w-full items-center gap-4 md:w-auto">
-            <Link href="/">
-              <Button variant="ghost" className="text-slate-400 hover:text-white">
-                <ArrowLeft className="mr-2 h-4 w-4" />
-                {copy.back}
-              </Button>
-            </Link>
-
+    <div className="flex h-full flex-col bg-slate-950 text-slate-100">
+      <TopBar />
+      <div className="flex-1 overflow-y-auto p-4 md:p-6">
+        <div className="mx-auto max-w-6xl space-y-8">
+          <div className="flex items-center justify-between gap-4">
             <div>
               <h1 className="flex items-center gap-2 text-2xl font-bold text-violet-400">
                 <Bot className="h-6 w-6" />
@@ -132,10 +133,8 @@ export default async function PersonasPage() {
               </h1>
               <p className="text-sm text-slate-400">{copy.subtitle}</p>
             </div>
+            <PersonaEditor />
           </div>
-
-          <PersonaEditor />
-        </div>
 
         <div className="space-y-4">
           <h2 className="flex items-center gap-2 border-l-4 border-violet-500 pl-3 text-lg font-semibold text-white">
@@ -190,6 +189,7 @@ export default async function PersonasPage() {
             )) || []}
           </div>
         </div>
+      </div>
       </div>
     </div>
   )

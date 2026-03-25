@@ -4,7 +4,6 @@ import { ArrowLeft } from "lucide-react"
 
 import { getHandRecord } from "@/app/actions/hand-records"
 import { HandReviewDesk } from "@/components/hand-review/HandReviewDesk"
-import { SiteHeader } from "@/components/layout/site-header"
 import { Button } from "@/components/ui/button"
 import { getServerLocale } from "@/lib/i18n-server"
 import { pickText } from "@/lib/i18n"
@@ -29,19 +28,18 @@ export default async function HandReviewPage({ params }: HandReviewPageProps) {
   }
 
   return (
-    <div className="min-h-screen bg-slate-950 text-slate-100">
-      <SiteHeader />
-
-      <main className="mx-auto flex max-w-[1600px] flex-col gap-6 px-4 py-6 md:px-8">
-        <div className="flex items-center justify-between">
-          <Link href="/hands">
-            <Button variant="ghost" className="text-slate-300 hover:bg-white/5 hover:text-white">
-              <ArrowLeft className="mr-2 h-4 w-4" />
-              {copy.back}
-            </Button>
-          </Link>
-        </div>
-
+    <div className="flex h-full flex-col bg-slate-950 text-slate-100">
+      <div className="flex h-14 shrink-0 items-center gap-4 border-b border-zinc-800 px-6">
+        <Link href="/hands">
+          <Button variant="ghost" size="sm" className="text-zinc-500 hover:text-white">
+            <ArrowLeft className="mr-1.5 h-4 w-4" />
+            返回手牌库
+          </Button>
+        </Link>
+        <div className="h-4 w-px bg-zinc-800" />
+        <span className="text-sm font-medium text-zinc-400">手牌详情</span>
+      </div>
+      <main className="flex-1 overflow-y-auto mx-auto flex max-w-[1600px] flex-col gap-6 px-4 py-6 md:px-8">
         <HandReviewDesk record={record} locale={locale} />
       </main>
     </div>

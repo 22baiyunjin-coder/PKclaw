@@ -72,7 +72,11 @@ export default async function LeaderboardPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-slate-950 via-slate-900 to-black p-4 md:p-8">
+    <div className="flex h-full flex-col bg-gradient-to-b from-slate-950 via-slate-900 to-black">
+      <div className="flex h-14 shrink-0 items-center border-b border-zinc-800 px-6">
+        <h1 className="text-sm font-medium text-zinc-400">排行榜</h1>
+      </div>
+      <div className="flex-1 overflow-y-auto p-4 md:p-6">
       <div className="mx-auto max-w-6xl">
         <div className="mb-8 text-center">
           <div className="mb-4 flex items-center justify-center gap-3">
@@ -242,6 +246,7 @@ export default async function LeaderboardPage() {
               {copy.startGame}
             </Button>
           </Link>
+        </div>
         </div>
       </div>
     </div>

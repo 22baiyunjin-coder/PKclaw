@@ -102,7 +102,37 @@ export default function AnalysisPage() {
   ] : []
 
   return (
-    <div className="min-h-screen bg-[#050505] p-4 font-sans text-slate-100 selection:bg-violet-500/30 md:p-8">
+    <div className="flex h-full flex-col bg-[#050505] font-sans text-slate-100 selection:bg-violet-500/30">
+      {/* Top bar */}
+      <div className="flex h-14 shrink-0 items-center gap-4 border-b border-zinc-800 px-4">
+        <Link href="/profile">
+          <Button variant="ghost" size="sm" className="text-zinc-500 hover:text-white">
+            <ArrowLeft className="mr-1.5 h-4 w-4" />
+            返回账本
+          </Button>
+        </Link>
+        <div className="h-4 w-px bg-zinc-800" />
+        <div className="flex items-center gap-2">
+          <Brain className="h-4 w-4 text-violet-400" />
+          <span className="text-sm font-semibold text-zinc-300">AI 深度复盘</span>
+        </div>
+      </div>
+      {/* Background Effects */}
+      <div className="pointer-events-none bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-violet-900/15 via-black to-black absolute inset-0" />
+      <div className="relative z-10 flex-1 overflow-y-auto p-4 md:p-8">
+      <div className="max-w-5xl mx-auto space-y-12">
+        <Link href="/profile">
+          <Button variant="ghost" size="sm" className="text-zinc-500 hover:text-white">
+            <ArrowLeft className="mr-1.5 h-4 w-4" />
+            返回账本
+          </Button>
+        </Link>
+        <div className="h-4 w-px bg-zinc-800" />
+        <div className="flex items-center gap-2">
+          <Brain className="h-4 w-4 text-violet-400" />
+          <span className="text-sm font-semibold text-zinc-300">AI 深度复盘</span>
+        </div>
+      </div>
        {/* Background Effects */}
        <div className="fixed inset-0 pointer-events-none bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-violet-900/15 via-black to-black" />
        
@@ -510,6 +540,7 @@ export default function AnalysisPage() {
 
           </div>
         )}
+      </div>
       </div>
     </div>
   )

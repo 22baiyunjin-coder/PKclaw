@@ -3,7 +3,6 @@ import { ArrowRight, Database, FileClock, Library } from "lucide-react"
 
 import { listHandRecords } from "@/app/actions/hand-records"
 import { HandImportForm } from "@/components/hand-review/HandImportForm"
-import { SiteHeader } from "@/components/layout/site-header"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
@@ -45,11 +44,16 @@ export default async function HandsPage() {
     }),
   }
 
-  return (
-    <div className="min-h-screen bg-slate-950 text-slate-100">
-      <SiteHeader />
+  const TopBar = () => (
+    <div className="flex h-14 shrink-0 items-center border-b border-zinc-800 px-6">
+      <h1 className="text-sm font-medium text-zinc-400">手牌仓库</h1>
+    </div>
+  )
 
-      <main className="mx-auto flex max-w-7xl flex-col gap-8 px-4 py-8 md:px-8">
+  return (
+    <div className="flex h-full flex-col bg-slate-950 text-slate-100">
+      <TopBar />
+      <main className="flex-1 overflow-y-auto mx-auto flex max-w-7xl flex-col gap-8 px-4 py-8 md:px-8">
         <section className="rounded-[32px] border border-white/10 bg-gradient-to-br from-slate-900 via-slate-900 to-slate-950 p-8 shadow-2xl">
           <div className="flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between">
             <div className="max-w-3xl">

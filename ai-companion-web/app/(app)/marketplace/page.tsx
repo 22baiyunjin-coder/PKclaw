@@ -184,10 +184,11 @@ export default function MarketplacePage() {
   })
 
   return (
-    <div className="flex min-h-screen flex-col bg-zinc-950 text-zinc-100">
-      <SiteHeaderClient />
-
-      <main className="container mx-auto flex-1 px-4 py-8 max-w-6xl">
+    <div className="flex h-full flex-col bg-zinc-950 text-zinc-100">
+      <div className="flex h-14 shrink-0 items-center border-b border-zinc-800 px-6">
+        <h1 className="text-sm font-medium text-zinc-400">角色市场</h1>
+      </div>
+      <main className="container mx-auto flex-1 px-4 py-6 max-w-6xl overflow-y-auto">
         <div className="mb-8 flex flex-col items-start justify-between gap-4 md:flex-row md:items-center">
           <div>
             <h1 className="flex items-center gap-2 text-3xl font-black tracking-tight text-white">
