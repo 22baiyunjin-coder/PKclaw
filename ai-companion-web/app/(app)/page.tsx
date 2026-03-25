@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useRef, useEffect } from "react"
 import Link from "next/link"
 import {
   Bot,
@@ -9,13 +9,23 @@ import {
   GraduationCap,
   HandMetal,
   MessageSquare,
+  Plus,
+  Send,
   Sparkles,
   Spade,
   Trophy,
   Wallet,
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
+import { Textarea } from "@/components/ui/textarea"
 import { cn } from "@/lib/utils"
+
+interface Message {
+  id: string
+  role: "user" | "assistant"
+  content: string
+  timestamp: Date
+}
 
 const quickActions = [
   {
@@ -23,174 +33,247 @@ const quickActions = [
     label: "开始打牌",
     desc: "与 AI 对手进行德扑对战",
     href: "/game",
-    color: "from-violet-600 to-purple-600",
-    bg: "bg-violet-500/10",
-    border: "border-violet-500/20",
-    iconColor: "text-violet-400",
-  },
-  {
-    icon: MessageSquare,
-    label: "讨论手牌",
-    desc: "用自然语言讨论任意手牌",
-    href: "/chat",
-    color: "from-blue-600 to-cyan-600",
-    bg: "bg-blue-500/10",
-    border: "border-blue-500/20",
-    iconColor: "text-blue-400",
-  },
-  {
-    icon: GraduationCap,
-    label: "AI 复盘",
-    desc: "深度分析你最近的手牌数据",
-    href: "/analysis",
-    color: "from-emerald-600 to-teal-600",
-    bg: "bg-emerald-500/10",
-    border: "border-emerald-500/20",
-    iconColor: "text-emerald-400",
-  },
-  {
-    icon: Wallet,
-    label: "账本",
-    desc: "查看筹码变化和战绩统计",
-    href: "/profile",
-    color: "from-amber-600 to-orange-600",
-    bg: "bg-amber-500/10",
-    border: "border-amber-500/20",
-    iconColor: "text-amber-400",
   },
   {
     icon: HandMetal,
     label: "角色工坊",
     desc: "创建和定制你的 AI 对手",
     href: "/personas",
-    color: "from-pink-600 to-rose-600",
-    bg: "bg-pink-500/10",
-    border: "border-pink-500/20",
-    iconColor: "text-pink-400",
   },
   {
     icon: BookOpen,
     label: "手牌仓库",
     desc: "管理历史手牌和导入记录",
     href: "/hands",
-    color: "from-indigo-600 to-violet-600",
-    bg: "bg-indigo-500/10",
-    border: "border-indigo-500/20",
-    iconColor: "text-indigo-400",
+  },
+  {
+    icon: Wallet,
+    label: "账本",
+    desc: "查看筹码变化和战绩统计",
+    href: "/profile",
   },
   {
     icon: Sparkles,
     label: "角色市场",
     desc: "发现其他玩家创建的 AI 对手",
     href: "/marketplace",
-    color: "from-fuchsia-600 to-pink-600",
-    bg: "bg-fuchsia-500/10",
-    border: "border-fuchsia-500/20",
-    iconColor: "text-fuchsia-400",
   },
   {
     icon: Trophy,
     label: "排行榜",
     desc: "查看全服玩家排名",
     href: "/leaderboard",
-    color: "from-yellow-600 to-amber-600",
-    bg: "bg-yellow-500/10",
-    border: "border-yellow-500/20",
-    iconColor: "text-yellow-400",
   },
 ]
 
+const exampleQuestions = [
+  "这手牌我应该怎么打？",
+  "帮我分析一下这个 spots 的 EV",
+  "我刚才那手牌有没有问题？",
+]
+
 export default function HomePage() {
-  const [hoveredIndex, setHoveredIndex] = useState<number | null>(null)
+  const [messages, setMessages] = useState<Message[]>([])
+  const [input, setInput] = useState("")
+  const [isLoading, setIsLoading] = useState(false)
+  const messagesEndRef = useRef<HTMLDivElement>(null)
+
+  const scrollToBottom = () => {
+    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" })
+  }
+
+  useEffect(() => {
+    scrollToBottom()
+  }, [messages])
+
+  const handleSend = async () => {
+    if (!input.trim() || isLoading) return
+
+    const userMessage: Message = {
+      id: Date.now().toString(),
+      role: "user",
+      content: input.trim(),
+      timestamp: new Date(),
+    }
+
+    setMessages((prev) => [...prev, userMessage])
+    setInput("")
+    setIsLoading(true)
+
+    // Simulate AI response
+    setTimeout(() => {
+      const aiMessage: Message = {
+        id: (Date.now() + 1).toString(),
+        role: "assistant",
+        content: "我收到了你的消息。让我分析一下...\n\n当前功能还在开发中，你可以：\n\n1. 点击左侧导航栏开始打牌\n2. 导入一手牌进行分析\n3. 查看你的战绩统计\n\n请选择一个功能开始体验！",
+        timestamp: new Date(),
+      }
+      setMessages((prev) => [...prev, aiMessage])
+      setIsLoading(false)
+    }, 1500)
+  }
+
+  const handleExampleClick = (question: string) => {
+    setInput(question)
+  }
 
   return (
-    <div className="flex h-full flex-col overflow-y-auto">
+    <div className="flex h-full flex-col">
       {/* Top bar */}
-      <div className="flex h-14 shrink-0 items-center border-b border-zinc-800 px-6">
-        <h1 className="text-sm font-medium text-zinc-400">首页</h1>
+      <div className="flex h-14 shrink-0 items-center justify-between border-b border-zinc-800 px-6">
+        <div className="flex items-center gap-3">
+          <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-br from-violet-500 to-fuchsia-600">
+            <Spade className="h-4 w-4 text-white" />
+          </div>
+          <span className="font-semibold text-white">PokerMind</span>
+          <span className="rounded-full bg-zinc-800 px-1.5 py-0.5 text-[10px] font-bold text-zinc-400">Beta</span>
+        </div>
+        <Link href="/game">
+          <Button size="sm" className="bg-violet-600 hover:bg-violet-500">
+            <Bot className="mr-1.5 h-4 w-4" />
+            开始打牌
+          </Button>
+        </Link>
       </div>
 
-      {/* Content */}
+      {/* Chat Area */}
       <div className="flex-1 overflow-y-auto">
-        <div className="mx-auto max-w-3xl px-6 py-12">
-          {/* Welcome */}
-          <div className="mb-10 text-center">
-            <div className="mb-4 inline-flex h-14 w-14 items-center justify-center rounded-2xl bg-gradient-to-br from-violet-500 to-fuchsia-600 shadow-lg shadow-violet-500/25">
-              <Spade className="h-7 w-7 text-white" />
+        {messages.length === 0 ? (
+          /* Empty State */
+          <div className="flex flex-col items-center justify-center h-full py-16 px-4">
+            <div className="mb-8 text-center">
+              <div className="mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-gradient-to-br from-violet-500 to-fuchsia-600 shadow-lg shadow-violet-500/25 mx-auto">
+                <MessageSquare className="h-8 w-8 text-white" />
+              </div>
+              <h2 className="mb-2 text-2xl font-bold text-white">有什么可以帮你？</h2>
+              <p className="text-sm text-zinc-500 max-w-md">
+                输入任意手牌描述，AI 助手会帮你分析 EV、讨论策略、复盘关键决策。
+              </p>
             </div>
-            <h2 className="mb-2 text-2xl font-bold text-white">欢迎来到 PokerMind</h2>
-            <p className="text-sm text-zinc-500">
-              选择一个功能开始，或直接开始打牌
-            </p>
+
+            {/* Example Questions */}
+            <div className="grid grid-cols-1 gap-3 w-full max-w-lg mb-12">
+              {exampleQuestions.map((question, i) => (
+                <button
+                  key={i}
+                  onClick={() => handleExampleClick(question)}
+                  className="rounded-xl border border-zinc-800 bg-zinc-900/50 p-4 text-left text-sm text-zinc-400 transition-all hover:border-zinc-700 hover:bg-zinc-800/50 hover:text-zinc-200"
+                >
+                  {question}
+                </button>
+              ))}
+            </div>
+
+            {/* Quick Actions */}
+            <div className="text-center">
+              <p className="mb-4 text-xs text-zinc-600">或直接开始</p>
+              <div className="flex flex-wrap justify-center gap-2">
+                {quickActions.map((action) => {
+                  const Icon = action.icon
+                  return (
+                    <Link key={action.href} href={action.href}>
+                      <Button variant="outline" size="sm" className="border-zinc-800 text-zinc-400 hover:bg-zinc-800 hover:text-white">
+                        <Icon className="mr-1.5 h-4 w-4" />
+                        {action.label}
+                      </Button>
+                    </Link>
+                  )
+                })}
+              </div>
+            </div>
           </div>
-
-          {/* Quick Actions Grid */}
-          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-            {quickActions.map((action, index) => {
-              const Icon = action.icon
-              const isHovered = hoveredIndex === index
-
-              return (
-                <Link key={action.href} href={action.href}>
-                  <div
-                    className={cn(
-                      "group relative flex cursor-pointer flex-col gap-3 rounded-2xl border p-5 transition-all duration-200",
-                      action.border,
-                      action.bg,
-                      isHovered ? "scale-[1.02] border-opacity-60" : "border-opacity-30"
-                    )}
-                    onMouseEnter={() => setHoveredIndex(index)}
-                    onMouseLeave={() => setHoveredIndex(null)}
-                  >
-                    {/* Glow */}
-                    <div
-                      className={cn(
-                        "absolute inset-0 rounded-2xl opacity-0 transition-opacity duration-300",
-                        `bg-gradient-to-br ${action.color}`,
-                        isHovered && "opacity-5"
-                      )}
-                    />
-
-                    <div className="relative flex items-start gap-4">
-                      <div
-                        className={cn(
-                          "flex h-10 w-10 shrink-0 items-center justify-center rounded-xl",
-                          `bg-gradient-to-br ${action.color}`,
-                          "shadow-lg"
-                        )}
-                      >
-                        <Icon className="h-5 w-5 text-white" />
-                      </div>
-                      <div className="min-w-0 flex-1">
-                        <div className="mb-1 font-semibold text-white group-hover:text-zinc-200">
-                          {action.label}
-                        </div>
-                        <div className="text-xs leading-relaxed text-zinc-500">
-                          {action.desc}
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                </Link>
-              )
-            })}
-          </div>
-
-          {/* CTA */}
-          <div className="mt-10 text-center">
-            <Link href="/game">
-              <Button
-                size="lg"
-                className="h-12 rounded-xl bg-gradient-to-r from-violet-600 to-fuchsia-600 px-10 font-bold text-white shadow-lg shadow-violet-500/25 transition-all hover:scale-105 hover:shadow-violet-500/40"
+        ) : (
+          /* Messages */
+          <div className="max-w-3xl mx-auto px-4 py-6 space-y-6">
+            {messages.map((msg) => (
+              <div
+                key={msg.id}
+                className={cn(
+                  "flex gap-4",
+                  msg.role === "user" ? "flex-row-reverse" : ""
+                )}
               >
-                <Bot className="mr-2 h-5 w-5" />
-                立即开始打牌
-              </Button>
-            </Link>
-            <p className="mt-3 text-xs text-zinc-600">
-              不需要注册，直接以游客身份开始体验
-            </p>
+                <div
+                  className={cn(
+                    "flex h-8 w-8 shrink-0 items-center justify-center rounded-full",
+                    msg.role === "user"
+                      ? "bg-violet-600"
+                      : "bg-gradient-to-br from-violet-500 to-fuchsia-600"
+                  )}
+                >
+                  {msg.role === "user" ? (
+                    <span className="text-sm font-medium text-white">P</span>
+                  ) : (
+                    <Spade className="h-4 w-4 text-white" />
+                  )}
+                </div>
+                <div
+                  className={cn(
+                    "rounded-2xl px-4 py-3 max-w-[80%]",
+                    msg.role === "user"
+                      ? "bg-violet-600 text-white"
+                      : "bg-zinc-900 text-zinc-200"
+                  )}
+                >
+                  <p className="whitespace-pre-wrap text-sm leading-relaxed">
+                    {msg.content}
+                  </p>
+                  <p className={cn(
+                    "text-[10px] mt-2",
+                    msg.role === "user" ? "text-violet-200" : "text-zinc-600"
+                  )}>
+                    {msg.timestamp.toLocaleTimeString()}
+                  </p>
+                </div>
+              </div>
+            ))}
+            {isLoading && (
+              <div className="flex gap-4">
+                <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-violet-500 to-fuchsia-600">
+                  <Spade className="h-4 w-4 text-white" />
+                </div>
+                <div className="rounded-2xl px-4 py-3 bg-zinc-900">
+                  <div className="flex gap-1">
+                    <div className="h-2 w-2 rounded-full bg-violet-500 animate-bounce" style={{ animationDelay: "0ms" }} />
+                    <div className="h-2 w-2 rounded-full bg-violet-500 animate-bounce" style={{ animationDelay: "150ms" }} />
+                    <div className="h-2 w-2 rounded-full bg-violet-500 animate-bounce" style={{ animationDelay: "300ms" }} />
+                  </div>
+                </div>
+              </div>
+            )}
+            <div ref={messagesEndRef} />
           </div>
+        )}
+      </div>
+
+      {/* Input Area */}
+      <div className="shrink-0 border-t border-zinc-800 bg-zinc-950 p-4">
+        <div className="max-w-3xl mx-auto">
+          <div className="flex gap-3">
+            <Textarea
+              value={input}
+              onChange={(e) => setInput(e.target.value)}
+              placeholder="描述一手牌，或者直接开始讨论..."
+              className="min-h-[60px] resize-none border-zinc-800 bg-zinc-900 text-white placeholder:text-zinc-600 focus-visible:ring-violet-500"
+              onKeyDown={(e) => {
+                if (e.key === "Enter" && !e.shiftKey) {
+                  e.preventDefault()
+                  handleSend()
+                }
+              }}
+            />
+            <Button
+              size="icon"
+              className="h-[60px] w-12 shrink-0 bg-violet-600 hover:bg-violet-500 disabled:opacity-50"
+              onClick={handleSend}
+              disabled={!input.trim() || isLoading}
+            >
+              <Send className="h-4 w-4" />
+            </Button>
+          </div>
+          <p className="mt-2 text-center text-xs text-zinc-600">
+            按 Enter 发送，Shift + Enter 换行
+          </p>
         </div>
       </div>
     </div>
