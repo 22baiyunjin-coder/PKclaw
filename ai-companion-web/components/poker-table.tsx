@@ -1429,6 +1429,12 @@ export function PokerTable({
               : "PKclaw disconnected"}
         </Badge>
 
+        {decisionBackendStatus?.pkclawMessage && !decisionBackendStatus.pkclawHealthy && (
+          <div className="hidden max-w-[320px] rounded-full border border-amber-400/20 bg-black/40 px-3 py-1 text-[10px] text-amber-100 backdrop-blur-md md:block">
+            {decisionBackendStatus.pkclawMessage}
+          </div>
+        )}
+
         {lastDecisionSource && (
           <Badge
             variant="outline"
