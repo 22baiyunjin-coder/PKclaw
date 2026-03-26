@@ -100,17 +100,33 @@ export default function HomePage() {
     setInput("")
     setIsLoading(true)
 
-    // Simulate AI response
-    setTimeout(() => {
+    try {
+      const response = await fetch("/api/chat", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ messages: [{ role: "user", content: input.trim() }] }),
+      })
+      const data = await response.json()
+      
       const aiMessage: Message = {
         id: (Date.now() + 1).toString(),
         role: "assistant",
-        content: "我收到了你的消息。让我分析一下...\n\n当前功能还在开发中，你可以：\n\n1. 点击左侧导航栏开始打牌\n2. 导入一手牌进行分析\n3. 查看你的战绩统计\n\n请选择一个功能开始体验！",
+        content: data.reply?.content || "抱歉，请稍后重试。",
         timestamp: new Date(),
       }
       setMessages((prev) => [...prev, aiMessage])
+    } catch (error) {
+      console.error("Chat error:", error)
+      const aiMessage: Message = {
+        id: (Date.now() + 1).toString(),
+        role: "assistant",
+        content: "抱歉，请稍后重试。",
+        timestamp: new Date(),
+      }
+      setMessages((prev) => [...prev, aiMessage])
+    } finally {
       setIsLoading(false)
-    }, 1500)
+    }
   }
 
   const handleExampleClick = (question: string) => {
