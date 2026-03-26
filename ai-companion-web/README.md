@@ -1,36 +1,55 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# PKclaw Edge Web
 
-## Getting Started
+This is the Next.js web client that powers the public `poker-mind.xyz` experience.
 
-First, run the development server:
+## What this app does
+
+- Renders the JavaScript poker table and public product pages
+- Proxies chat requests to the configured chat backend
+- Calls the original PKclaw Python decision engine when `PKCLAW_API_BASE_URL` is configured
+
+## Important architecture note
+
+The JavaScript table UI is **not** the source of truth for poker intelligence.
+
+Real bot decision logic should come from the Python PKclaw backend through:
+
+- `POST {PKCLAW_API_BASE_URL}/api/decision`
+
+If that backend is unavailable, the web app can fall back to degraded logic for local testing, but that is not the intended production mode.
+
+## Required production env
 
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+PKCLAW_API_BASE_URL=https://your-public-pkclaw-backend.example
+PKCLAW_REQUIRE_LOCAL_DECISION=true
+PKCLAW_ALLOW_HEURISTIC_FALLBACK=false
+PKCLAW_ALLOW_REMOTE_MODEL_DECISION=false
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Recommended chat env:
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+```bash
+MINIMAX_API_KEY=...
+MINIMAX_BASE_URL=https://api.minimaxi.com/v1
+MINIMAX_MODEL=MiniMax-M2.5
+```
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+## Decision source behavior
 
-## Learn More
+The table will now surface the decision source in the UI:
 
-To learn more about Next.js, take a look at the following resources:
+- `pkclaw_local`: original PKclaw engine
+- `heuristic_fallback`: degraded local heuristic
+- `safe_fallback`: conservative emergency fallback
+- `remote_model`: remote model decision path (disabled by default)
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+For production, the intended goal is that bots run from `pkclaw_local`.
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+## Local development
 
-## Deploy on Vercel
+```bash
+npm install
+npm run dev
+```
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
