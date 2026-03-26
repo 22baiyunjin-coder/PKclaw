@@ -92,34 +92,47 @@ async function requestMinimax(
   messages: ChatMessagePayload[],
   handContext?: ChatHandContext | null,
 ): Promise<ModelReply> {
-  const response = await fetch(`${normalizeBaseUrl()}${DEFAULT_MINIMAX_API_PATH}`, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${getApiKey()}`,
-    },
-    body: JSON.stringify({
-      model: getModelName(),
-      temperature: 0.72,
-      messages: withChatSystemMessage(compactConversation(messages), handContext),
-    }),
-  })
+  const url = `${normalizeBaseUrl()}${DEFAULT_MINIMAX_API_PATH}`
+  console.log("[MiniMax] Request to:", url)
+  
+  try {
+    const response = await fetch(url, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${getApiKey()}`,
+      },
+      body: JSON.stringify({
+        model: getModelName(),
+        temperature: 0.72,
+        messages: withChatSystemMessage(compactConversation(messages), handContext),
+      }),
+    })
 
-  if (!response.ok) {
-    const detail = await response.text()
-    throw new Error(`MiniMax request failed with status ${response.status}. ${detail.slice(0, 400)}`)
-  }
+    console.log("[MiniMax] Response status:", response.status)
+    
+    if (!response.ok) {
+      const detail = await response.text()
+      console.error("[MiniMax] Error response:", detail)
+      throw new Error(`MiniMax request failed with status ${response.status}. ${detail.slice(0, 400)}`)
+    }
 
-  const payload = (await response.json()) as unknown
-  const content = extractTextContent(payload)
+    const payload = (await response.json()) as unknown
+    console.log("[MiniMax] Response payload:", JSON.stringify(payload).slice(0, 500))
+    
+    const content = extractTextContent(payload)
 
-  if (!content) {
-    throw new Error("MiniMax returned an empty assistant reply.")
-  }
+    if (!content) {
+      throw new Error("MiniMax returned an empty assistant reply.")
+    }
 
-  return {
-    content,
-    provider: "minimax",
+    return {
+      content,
+      provider: "minimax",
+    }
+  } catch (err) {
+    console.error("[MiniMax] Exception:", err)
+    throw err
   }
 }
 
@@ -127,7 +140,12 @@ export async function generateChatReply(
   messages: ChatMessagePayload[],
   handContext?: ChatHandContext | null,
 ): Promise<ModelReply> {
-  if (!getApiKey()) {
+  const apiKey = getApiKey()
+  console.log("[MiniMax] API Key present:", !!apiKey, "length:", apiKey?.length)
+  console.log("[MiniMax] URL:", `${normalizeBaseUrl()}${DEFAULT_MINIMAX_API_PATH}`)
+  console.log("[MiniMax] Model:", getModelName())
+  
+  if (!apiKey) {
     return {
       content: generateMockChatReply(messages, handContext),
       provider: "mock",
