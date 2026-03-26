@@ -19,7 +19,12 @@ import {
   getRankValue,
 } from "@/lib/poker-logic"
 import { cn } from "@/lib/utils"
-import { getAIDecision } from "@/app/actions/poker-ai"
+import {
+  getAIDecision,
+  getDecisionBackendStatus,
+  type DecisionBackendStatus,
+  type DecisionSource,
+} from "@/app/actions/poker-ai"
 import { getUserProfile, saveGameResult } from "@/app/actions/game-history"
 import { saveHandRecord } from "@/app/actions/hand-records"
 import { getPersonas } from "@/app/actions/personas"
@@ -176,6 +181,9 @@ export function PokerTable({
   const [raiseAmount, setRaiseAmount] = useState(0)
   const [layoutRadius, setLayoutRadius] = useState({ x: 42, y: 35 })
   const [playerBuyIns, setPlayerBuyIns] = useState<Record<number, number>>({})
+  const [decisionBackendStatus, setDecisionBackendStatus] = useState<DecisionBackendStatus | null>(null)
+  const [lastDecisionSource, setLastDecisionSource] = useState<DecisionSource | null>(null)
+  const [lastDecisionReason, setLastDecisionReason] = useState<string | null>(null)
   const processingRef = useRef(false)
   const gameStateRef = useRef<GameState | null>(null)
 
@@ -248,6 +256,32 @@ export function PokerTable({
       setIsChatOpen(true)
     }
   }, [])
+
+  useEffect(() => {
+    const loadDecisionBackendStatus = async () => {
+      try {
+        const status = await getDecisionBackendStatus()
+        setDecisionBackendStatus(status)
+
+        if (!status.pkclawHealthy) {
+          toast.warning(
+            locale === "zh" ? "PKclaw 决策后端未连接" : "PKclaw decision backend is not connected",
+            {
+              description:
+                status.pkclawMessage ||
+                (locale === "zh"
+                  ? "当前牌桌不会使用原始扑克逻辑，Bot 会退回到降级决策。"
+                  : "The table is not using the original PKclaw engine. Bots will fall back to degraded decisions."),
+            },
+          )
+        }
+      } catch (error) {
+        console.error("Failed to load PKclaw backend status", error)
+      }
+    }
+
+    void loadDecisionBackendStatus()
+  }, [locale])
 
   // Sync state with server props when they change (e.g. after revalidation)
   useEffect(() => {
@@ -951,6 +985,8 @@ export function PokerTable({
 
     // Fast Forward Mode: If user folded, skip server AI and use local heuristic
     if (state.players[0].folded) {
+        setLastDecisionSource("heuristic_fallback")
+        setLastDecisionReason("Fast-forward mode after hero folded")
         const action = simulateHeuristicAction(currentPlayer, state, validActions)
         handleAction(action.action, action.amount, "⚡️")
         return
@@ -1003,8 +1039,12 @@ export function PokerTable({
 
     const decision = await Promise.race([decisionPromise, timeoutPromise])
 
-    if (decision?.source && decision.source !== "pkclaw_local") {
-        console.warn("Bot decision did not come from PKclaw local engine:", decision.source, decision.reason)
+    if (decision?.source) {
+        setLastDecisionSource(decision.source)
+        setLastDecisionReason(decision.reason || null)
+        if (decision.source !== "pkclaw_local") {
+            console.warn("Bot decision did not come from PKclaw local engine:", decision.source, decision.reason)
+        }
     }
 
     let action = decision.action
@@ -1369,6 +1409,48 @@ export function PokerTable({
       )}
 
       {/* 右上角：菜单按钮 */}
+      <div className="absolute top-3 left-3 z-50 flex items-center gap-2">
+        <Badge
+          variant="outline"
+          className={cn(
+            "rounded-full bg-black/40 backdrop-blur-md border text-[10px] md:text-xs font-semibold",
+            decisionBackendStatus?.pkclawHealthy
+              ? "border-emerald-400/30 text-emerald-200"
+              : "border-amber-400/30 text-amber-200",
+          )}
+          title={decisionBackendStatus?.pkclawMessage || undefined}
+        >
+          {decisionBackendStatus?.pkclawHealthy
+            ? locale === "zh"
+              ? "PKclaw 已连接"
+              : "PKclaw connected"
+            : locale === "zh"
+              ? "PKclaw 未连接"
+              : "PKclaw disconnected"}
+        </Badge>
+
+        {lastDecisionSource && (
+          <Badge
+            variant="outline"
+            title={lastDecisionReason ?? undefined}
+            className={cn(
+              "rounded-full bg-black/40 backdrop-blur-md border text-[10px] md:text-xs font-semibold",
+              lastDecisionSource === "pkclaw_local"
+                ? "border-emerald-400/30 text-emerald-200"
+                : "border-amber-400/30 text-amber-200",
+            )}
+          >
+            {lastDecisionSource === "pkclaw_local"
+              ? locale === "zh"
+                ? "决策来源：PKclaw"
+                : "Decision: PKclaw"
+              : locale === "zh"
+                ? `决策来源：${lastDecisionSource}`
+                : `Decision: ${lastDecisionSource}`}
+          </Badge>
+        )}
+      </div>
+
       <div className={cn("absolute top-3 right-3 z-50 transition-all", isChatOpen && "xl:right-[400px]")}>
         {isMenuExpanded ? (
           // 展开状态：显示所有按钮

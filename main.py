@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 from functools import lru_cache, partial
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
@@ -29,8 +30,8 @@ from pkbot.test_scenarios import run_demo_scenarios
 from pkbot.train_policy import print_policy_training_report, save_policy_training_report, train_lightgbm_policy
 from pkbot.train_evaluator import print_training_report, save_training_report, train_lightgbm_evaluator
 
-HOST = "127.0.0.1"
-PORT = 8000
+HOST = os.environ.get("PKCLAW_HOST", "127.0.0.1")
+PORT = int(os.environ.get("PKCLAW_PORT", "8000"))
 DEFAULT_EVALUATOR_MODEL_CANDIDATES = [
     "outputs/evaluator_v1/evaluator_v1_baseline.joblib",
     "outputs/evaluator_v1/evaluator_model.joblib",
@@ -49,6 +50,9 @@ class DemoRequestHandler(SimpleHTTPRequestHandler):
         parsed = urlparse(self.path)
         if parsed.path == "/api/replay":
             self._serve_replay(parsed.query)
+            return
+        if parsed.path in {"/health", "/api/health"}:
+            self._serve_health()
             return
         if parsed.path == "/api/product-state":
             self._serve_product_state()
@@ -109,6 +113,18 @@ class DemoRequestHandler(SimpleHTTPRequestHandler):
                     "message": str(exc),
                 },
             )
+
+    def _serve_health(self) -> None:
+        self._send_json(
+            200,
+            {
+                "status": "ok",
+                "service": "pkclaw-backend",
+                "host": HOST,
+                "port": PORT,
+                "chat": get_chat_status().to_dict() if _can_read_chat_status() else None,
+            },
+        )
 
     def _handle_chat_request(self) -> None:
         try:
@@ -239,6 +255,14 @@ def serve_ui() -> None:
         print("\nShutting down demo server.")
     finally:
         server.server_close()
+
+
+def _can_read_chat_status() -> bool:
+    try:
+        get_chat_status()
+        return True
+    except ChatServiceError:
+        return False
 
 
 def _load_model_if_requested(model_path: str | None):

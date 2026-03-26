@@ -32,19 +32,31 @@ interface AIRequest {
   actionLog?: string[]
 }
 
-type DecisionSource =
+export type DecisionSource =
   | "pkclaw_local"
   | "remote_model"
   | "heuristic_fallback"
   | "safe_fallback"
 
-interface AIResponse {
+export interface AIResponse {
   action: "fold" | "check" | "call" | "raise" | "all-in"
   amount?: number
   reason: string
   message?: string
   source: DecisionSource
 }
+
+export interface DecisionBackendStatus {
+  pkclawConfigured: boolean
+  pkclawHealthy: boolean
+  pkclawBaseUrl: string | null
+  pkclawMessage?: string
+  remoteModelEnabled: boolean
+  heuristicFallbackEnabled: boolean
+  requirePkclawLocal: boolean
+}
+
+const DEFAULT_PRODUCTION_PKCLAW_BASE_URL = "http://192.144.205.163:8000"
 
 interface LocalDecisionResponse {
   decision?: {
@@ -79,6 +91,91 @@ function buildCacheKey(data: AIRequest): string {
     data.validActions.join("-"),
     data.actionLog?.slice(-4).join("|") || "no-log",
   ].join("::")
+}
+
+function parseBooleanEnv(value: string | undefined, defaultValue: boolean): boolean {
+  if (typeof value !== "string") {
+    return defaultValue
+  }
+
+  const normalized = value.trim().toLowerCase()
+  if (["1", "true", "yes", "on"].includes(normalized)) {
+    return true
+  }
+  if (["0", "false", "no", "off"].includes(normalized)) {
+    return false
+  }
+
+  return defaultValue
+}
+
+function getPkclawBaseUrl(): string | null {
+  const configuredBaseUrl = process.env.PKCLAW_API_BASE_URL?.trim()
+  if (configuredBaseUrl) {
+    return configuredBaseUrl.replace(/\/$/, "")
+  }
+
+  if (process.env.NODE_ENV !== "production") {
+    return "http://127.0.0.1:8000"
+  }
+
+  return DEFAULT_PRODUCTION_PKCLAW_BASE_URL
+}
+
+function isRemoteModelDecisionEnabled(): boolean {
+  return parseBooleanEnv(process.env.PKCLAW_ALLOW_REMOTE_MODEL_DECISION, false)
+}
+
+function isHeuristicFallbackEnabled(): boolean {
+  return parseBooleanEnv(
+    process.env.PKCLAW_ALLOW_HEURISTIC_FALLBACK,
+    process.env.NODE_ENV !== "production",
+  )
+}
+
+function isPkclawLocalRequired(): boolean {
+  return parseBooleanEnv(process.env.PKCLAW_REQUIRE_LOCAL_DECISION, process.env.NODE_ENV === "production")
+}
+
+export async function getDecisionBackendStatus(): Promise<DecisionBackendStatus> {
+  const baseUrl = getPkclawBaseUrl()
+  const pkclawConfigured = Boolean(baseUrl)
+  let pkclawHealthy = false
+  let pkclawMessage = pkclawConfigured
+    ? "PKclaw backend has not been health-checked yet."
+    : "PKclaw backend URL is not configured."
+
+  if (baseUrl) {
+    try {
+      const response = await fetch(`${baseUrl}/health`, {
+        method: "GET",
+        cache: "no-store",
+        signal: AbortSignal.timeout(4000),
+      })
+
+      if (response.ok) {
+        pkclawHealthy = true
+        pkclawMessage = `PKclaw backend responded from ${baseUrl}.`
+      } else {
+        pkclawMessage = `PKclaw backend health check failed with ${response.status} ${response.statusText}.`
+      }
+    } catch (error) {
+      pkclawMessage =
+        error instanceof Error
+          ? `PKclaw backend health check failed: ${error.message}`
+          : "PKclaw backend health check failed."
+    }
+  }
+
+  return {
+    pkclawConfigured,
+    pkclawHealthy,
+    pkclawBaseUrl: baseUrl,
+    pkclawMessage,
+    remoteModelEnabled: isRemoteModelDecisionEnabled(),
+    heuristicFallbackEnabled: isHeuristicFallbackEnabled(),
+    requirePkclawLocal: isPkclawLocalRequired(),
+  }
 }
 
 function buildTableMessage(
@@ -437,10 +534,7 @@ function buildHeuristicFallbackDecision(data: AIRequest): AIResponse {
 }
 
 async function tryPkclawDecision(data: AIRequest): Promise<AIResponse | null> {
-  const configuredBaseUrl = process.env.PKCLAW_API_BASE_URL?.trim()
-  const baseUrl =
-    configuredBaseUrl ||
-    (process.env.NODE_ENV === "production" ? null : "http://127.0.0.1:8000")
+  const baseUrl = getPkclawBaseUrl()
 
   if (!baseUrl) {
     console.warn(
@@ -550,6 +644,10 @@ async function tryPkclawDecision(data: AIRequest): Promise<AIResponse | null> {
 }
 
 async function tryRemoteModelDecision(data: AIRequest): Promise<AIResponse | null> {
+  if (!isRemoteModelDecisionEnabled()) {
+    return null
+  }
+
   const apiKey = process.env.GEMINI_API_KEY
   const baseUrl =
     process.env.GEMINI_API_BASE_URL?.trim() || "https://api.shubiaobiao.cn/v1"
@@ -659,9 +757,23 @@ export async function getAIDecision(data: AIRequest): Promise<AIResponse> {
     return localDecision
   }
 
+  if (isPkclawLocalRequired()) {
+    return buildSafeFallbackDecision(
+      data,
+      "PKclaw local decision backend is required but unavailable",
+    )
+  }
+
   const remoteDecision = await tryRemoteModelDecision(data)
   if (remoteDecision) {
     return remoteDecision
+  }
+
+  if (!isHeuristicFallbackEnabled()) {
+    return buildSafeFallbackDecision(
+      data,
+      "PKclaw local decision backend is unavailable and heuristic fallback is disabled",
+    )
   }
 
   try {
