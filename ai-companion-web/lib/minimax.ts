@@ -17,7 +17,7 @@ function getModelName() {
 }
 
 function getApiKey() {
-  return process.env.MINIMAX_API_KEY?.trim() || ""
+  return process.env.NEXT_PUBLIC_MINIMAX_API_KEY?.trim() || process.env.MINIMAX_API_KEY?.trim() || ""
 }
 
 function compactConversation(messages: ChatMessagePayload[]) {
