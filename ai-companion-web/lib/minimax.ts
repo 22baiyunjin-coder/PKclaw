@@ -2,7 +2,8 @@ import { withChatSystemMessage } from "@/lib/chat-persona"
 import { generateMockChatReply } from "@/lib/mock-chat-reply"
 import type { ChatHandContext, ChatMessagePayload, ModelReply } from "@/types/chat"
 
-const DEFAULT_MINIMAX_BASE_URL = "https://api.minimaxi.com/v1"
+const DEFAULT_MINIMAX_BASE_URL = "https://api.minimaxi.com/anthropic"
+const DEFAULT_MINIMAX_API_PATH = "/v1/messages"
 const DEFAULT_MINIMAX_MODEL = "MiniMax-M2.7-highspeed"
 const MAX_CONTEXT_MESSAGES = 14
 
@@ -24,39 +25,62 @@ function compactConversation(messages: ChatMessagePayload[]) {
 }
 
 function extractTextContent(payload: unknown) {
+  if (!payload || typeof payload !== "object") {
+    return ""
+  }
+
+  const p = payload as Record<string, unknown>
+
+  // Anthropic format: content is an array
+  const content = p.content
+  if (Array.isArray(content)) {
+    // Find the text block (skip thinking blocks)
+    for (const block of content) {
+      if (typeof block === "object" && block !== null) {
+        const b = block as Record<string, unknown>
+        if (b.type === "text" && typeof b.text === "string") {
+          return b.text.trim()
+        }
+      }
+    }
+    return ""
+  }
+
+  // OpenAI format (fallback)
   if (
-    !payload ||
-    typeof payload !== "object" ||
-    !("choices" in payload) ||
-    !Array.isArray(payload.choices)
+    !("choices" in p) ||
+    !Array.isArray(p.choices) ||
+    !p.choices[0] ||
+    typeof p.choices[0] !== "object"
   ) {
     return ""
   }
 
-  const firstChoice = payload.choices[0]
+  const firstChoice = p.choices[0] as Record<string, unknown>
 
   if (
-    !firstChoice ||
-    typeof firstChoice !== "object" ||
     !("message" in firstChoice) ||
     !firstChoice.message ||
-    typeof firstChoice.message !== "object" ||
-    !("content" in firstChoice.message)
+    typeof firstChoice.message !== "object"
   ) {
     return ""
   }
 
-  const { content } = firstChoice.message as {
-    content?: string | Array<{ text?: string }>
+  const msg = firstChoice.message as Record<string, unknown>
+
+  if (typeof msg.content === "string") {
+    return msg.content.trim()
   }
 
-  if (typeof content === "string") {
-    return content.trim()
-  }
-
-  if (Array.isArray(content)) {
-    return content
-      .map((part) => (typeof part?.text === "string" ? part.text : ""))
+  if (Array.isArray(msg.content)) {
+    return msg.content
+      .map((part: unknown) => {
+        if (typeof part === "object" && part !== null) {
+          const p2 = part as Record<string, unknown>
+          return typeof p2.text === "string" ? p2.text : ""
+        }
+        return ""
+      })
       .join("\n")
       .trim()
   }
@@ -68,7 +92,7 @@ async function requestMinimax(
   messages: ChatMessagePayload[],
   handContext?: ChatHandContext | null,
 ): Promise<ModelReply> {
-  const response = await fetch(`${normalizeBaseUrl()}/chat/completions`, {
+  const response = await fetch(`${normalizeBaseUrl()}${DEFAULT_MINIMAX_API_PATH}`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
