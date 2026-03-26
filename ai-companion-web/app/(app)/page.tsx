@@ -9,6 +9,8 @@ import {
   GraduationCap,
   HandMetal,
   MessageSquare,
+  Mic,
+  MicOff,
   Plus,
   Send,
   Sparkles,
@@ -76,7 +78,9 @@ export default function HomePage() {
   const [messages, setMessages] = useState<Message[]>([])
   const [input, setInput] = useState("")
   const [isLoading, setIsLoading] = useState(false)
+  const [isRecording, setIsRecording] = useState(false)
   const messagesEndRef = useRef<HTMLDivElement>(null)
+  const recognitionRef = useRef<SpeechRecognition | null>(null)
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" })
@@ -85,6 +89,57 @@ export default function HomePage() {
   useEffect(() => {
     scrollToBottom()
   }, [messages])
+
+  // Web Speech API for voice input
+  const toggleVoiceInput = () => {
+    if (isRecording) {
+      recognitionRef.current?.stop()
+      setIsRecording(false)
+      return
+    }
+
+    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition
+    if (!SpeechRecognition) {
+      alert("您的浏览器不支持语音识别功能")
+      return
+    }
+
+    const recognition = new SpeechRecognition()
+    recognition.lang = "zh-CN"
+    recognition.continuous = false
+    recognition.interimResults = true
+
+    recognition.onstart = () => {
+      setIsRecording(true)
+    }
+
+    recognition.onresult = (event) => {
+      const results = event.results
+      const lastResult = results[results.length - 1]
+      if (lastResult.isFinal) {
+        setInput(lastResult[0].transcript)
+      }
+    }
+
+    recognition.onerror = (event) => {
+      console.error("Speech recognition error:", event.error)
+      setIsRecording(false)
+    }
+
+    recognition.onend = () => {
+      setIsRecording(false)
+    }
+
+    recognition.start()
+    recognitionRef.current = recognition
+  }
+
+  // Cleanup on unmount
+  useEffect(() => {
+    return () => {
+      recognitionRef.current?.stop()
+    }
+  }, [])
 
   const handleSend = async () => {
     if (!input.trim() || isLoading) return
@@ -278,6 +333,22 @@ export default function HomePage() {
                 }
               }}
             />
+            <Button
+              size="icon"
+              variant={isRecording ? "destructive" : "outline"}
+              className={`h-[60px] w-12 shrink-0 ${isRecording ? "bg-red-600 hover:bg-red-500" : "border-zinc-800 text-zinc-400 hover:bg-zinc-800 hover:text-white"}`}
+              onClick={toggleVoiceInput}
+              disabled={isLoading}
+              title={isRecording ? "点击停止录音" : "点击开始语音输入"}
+            >
+              {isRecording ? (
+                <div className="flex items-center gap-1">
+                  <div className="h-3 w-3 rounded-full bg-white animate-pulse" />
+                </div>
+              ) : (
+                <Mic className="h-4 w-4" />
+              )}
+            </Button>
             <Button
               size="icon"
               className="h-[60px] w-12 shrink-0 bg-violet-600 hover:bg-violet-500 disabled:opacity-50"
