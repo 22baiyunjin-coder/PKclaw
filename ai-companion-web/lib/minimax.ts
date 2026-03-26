@@ -3,7 +3,7 @@ import { generateMockChatReply } from "@/lib/mock-chat-reply"
 import type { ChatHandContext, ChatMessagePayload, ModelReply } from "@/types/chat"
 
 const DEFAULT_MINIMAX_BASE_URL = "https://api.minimaxi.com/v1"
-const DEFAULT_MINIMAX_MODEL = "MiniMax-M2.5"
+const DEFAULT_MINIMAX_MODEL = "MiniMax-M2.7-highspeed"
 const MAX_CONTEXT_MESSAGES = 14
 
 function normalizeBaseUrl() {

@@ -26,9 +26,10 @@ REQUEST_TYPE_ALTERNATIVE = "why_not_action"
 REQUEST_TYPE_COMPARE_STYLE = "compare_style"
 REQUEST_TYPE_REVIEW = "review_hand"
 REQUEST_TYPE_HAND_HISTORY = "hand_history_first_pass"
-DEFAULT_REMOTE_BASE_URL = "http://10.10.142.113:8001/v1"
-DEFAULT_REMOTE_MODEL = "Qwen3-4B-Instruct-2507"
+DEFAULT_REMOTE_BASE_URL = "https://api.minimaxi.com/v1"
+DEFAULT_REMOTE_MODEL = "MiniMax-M2.7-highspeed"
 DEFAULT_REMOTE_API_PATH = "/chat/completions"
+DEFAULT_REMOTE_API_KEY = "sk-api-a6AFFjOHhJATiYzqisHcEEdlwEoLOwUN9dWjAf8BJsYbwXLEW7ntALFGHA-PjRO0UUJKG-VV9HK2MPfN0xjs6u8ZK84nIlcBHoVSWPSFD3rwqNizax7aP6c"
 DEFAULT_CHAT_LOG_DIR = "outputs/chat_logs"
 CHAT_LOG_FILE_NAME = "chat_events.jsonl"
 SFT_EXPORT_FILE_NAME = "chat_sft_dataset.jsonl"
@@ -401,7 +402,7 @@ def _load_chat_config() -> ChatConfig:
         api_path = _env_first("PKCLAW_API_PATH", "PKCLAW_CHAT_API_PATH") or "/responses"
     else:
         base_url = provider_base_url or DEFAULT_REMOTE_BASE_URL
-        api_key = provider_api_key or openai_api_key
+        api_key = provider_api_key or openai_api_key or DEFAULT_REMOTE_API_KEY
         model = provider_model or openai_model or DEFAULT_REMOTE_MODEL
         api_path = _env_first("PKCLAW_API_PATH", "PKCLAW_CHAT_API_PATH") or DEFAULT_REMOTE_API_PATH
 
