@@ -145,6 +145,9 @@ export async function getDecisionBackendStatus(): Promise<DecisionBackendStatus>
     ? "PKclaw backend has not been health-checked yet."
     : "PKclaw backend URL is not configured."
 
+  console.log("[PKclaw Status] baseUrl:", baseUrl, "NODE_ENV:", process.env.NODE_ENV)
+  console.log("[PKclaw Status] configuredBaseUrl:", process.env.PKCLAW_API_BASE_URL)
+
   if (baseUrl) {
     try {
       const response = await fetch(`${baseUrl}/health`, {
