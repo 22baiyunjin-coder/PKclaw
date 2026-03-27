@@ -9,14 +9,14 @@ from .strategy.shared import boost, initialize_weights
 from .strategy.types import PolicyPlan, StrategyContext
 
 OPEN_THRESHOLDS = {
-    "UTG": 0.66,
-    "UTG+1": 0.64,
-    "MP": 0.60,
-    "HJ": 0.56,
-    "CO": 0.50,
-    "BTN": 0.44,
-    "SB": 0.47,
-    "BB": 0.60,
+    "UTG": 0.60,
+    "UTG+1": 0.58,
+    "MP": 0.56,
+    "HJ": 0.50,
+    "CO": 0.44,
+    "BTN": 0.38,
+    "SB": 0.42,
+    "BB": 0.55,
 }
 
 STEAL_THRESHOLDS = {
@@ -216,7 +216,7 @@ def _base_preflop_score(hand: PreflopHandSummary) -> float:
 
 
 def _position_open_bonus(position: str) -> float:
-    return {"UTG": -0.06, "UTG+1": -0.04, "MP": -0.01, "HJ": 0.03, "CO": 0.08, "BTN": 0.12, "SB": 0.05, "BB": -0.02}.get(position, 0.0)
+    return {"UTG": -0.08, "UTG+1": -0.06, "MP": -0.02, "HJ": 0.05, "CO": 0.12, "BTN": 0.18, "SB": 0.08, "BB": -0.04}.get(position, 0.0)
 
 
 def _position_steal_bonus(position: str) -> float:

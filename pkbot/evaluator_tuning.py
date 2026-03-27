@@ -36,7 +36,7 @@ def river_clamp_candidate_tuning() -> EvaluatorTuning:
         river_bluff_catch_threshold=0.62,
         call_penalty=0.12,
         marginal_call_penalty=0.09,
-        fold_bonus=0.15,
+        fold_bonus=0.0,
         medium_strength_continue_cap=0.39,
     )
 
