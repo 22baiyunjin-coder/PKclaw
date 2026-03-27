@@ -55,8 +55,14 @@ class Card:
         return f"{self.rank}{self.suit}"
 
 
-def parse_card(token: str) -> Card:
-    token = token.strip()
+def parse_card(token: str | dict) -> Card:
+    if isinstance(token, dict):
+        rank = str(token.get("rank", "")).strip()
+        suit = str(token.get("suit", "")).strip()
+        if len(rank) != 1 or len(suit) != 1:
+            raise ValueError(f"Invalid card token: {token}")
+        return Card(rank.upper(), suit.lower())
+    token = str(token).strip()
     if len(token) != 2:
         raise ValueError(f"Invalid card token: {token}")
     return Card(token[0].upper(), token[1].lower())
