@@ -148,8 +148,10 @@ export async function getDecisionBackendStatus(): Promise<DecisionBackendStatus>
   console.log("[PKclaw Status] baseUrl:", baseUrl, "NODE_ENV:", process.env.NODE_ENV)
 
   if (baseUrl) {
+    const healthUrl = `http://192.144.205.163/pkclaw-backend/health`
+    
     try {
-      const response = await fetch(`${baseUrl}/health`, {
+      const response = await fetch(healthUrl, {
         method: "GET",
         cache: "no-store",
         signal: AbortSignal.timeout(4000),
