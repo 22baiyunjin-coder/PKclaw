@@ -138,7 +138,7 @@ function isPkclawLocalRequired(): boolean {
 }
 
 export async function getDecisionBackendStatus(): Promise<DecisionBackendStatus> {
-  const baseUrl = getPkclawBaseUrl()
+  const baseUrl = "/api/pkclaw"
   const pkclawConfigured = Boolean(baseUrl)
   let pkclawHealthy = false
   let pkclawMessage = pkclawConfigured
@@ -146,7 +146,6 @@ export async function getDecisionBackendStatus(): Promise<DecisionBackendStatus>
     : "PKclaw backend URL is not configured."
 
   console.log("[PKclaw Status] baseUrl:", baseUrl, "NODE_ENV:", process.env.NODE_ENV)
-  console.log("[PKclaw Status] configuredBaseUrl:", process.env.PKCLAW_API_BASE_URL)
 
   if (baseUrl) {
     try {
@@ -537,14 +536,7 @@ function buildHeuristicFallbackDecision(data: AIRequest): AIResponse {
 }
 
 async function tryPkclawDecision(data: AIRequest): Promise<AIResponse | null> {
-  const baseUrl = getPkclawBaseUrl()
-
-  if (!baseUrl) {
-    console.warn(
-      "[PKclaw] PKCLAW_API_BASE_URL is missing in production. Skipping local decision bridge.",
-    )
-    return null
-  }
+  const baseUrl = "/api/pkclaw"  // Use Next.js proxy instead of direct URL
 
   const heroName = data.persona?.name || "Bot"
   const payload = {
