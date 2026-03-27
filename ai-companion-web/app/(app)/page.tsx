@@ -17,10 +17,13 @@ import {
   Spade,
   Trophy,
   Wallet,
+  Wifi,
+  WifiOff,
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Textarea } from "@/components/ui/textarea"
 import { cn } from "@/lib/utils"
+import { getDecisionBackendStatus } from "@/app/actions/poker-ai"
 
 interface Message {
   id: string
@@ -79,6 +82,7 @@ export default function HomePage() {
   const [input, setInput] = useState("")
   const [isLoading, setIsLoading] = useState(false)
   const [isRecording, setIsRecording] = useState(false)
+  const [pkclawStatus, setPkclawStatus] = useState<{configured: boolean; healthy: boolean; url: string; message: string} | null>(null)
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const recognitionRef = useRef<SpeechRecognition | null>(null)
 
@@ -89,6 +93,20 @@ export default function HomePage() {
   useEffect(() => {
     scrollToBottom()
   }, [messages])
+
+  // Check PKclaw backend status
+  useEffect(() => {
+    getDecisionBackendStatus().then(status => {
+      setPkclawStatus({
+        configured: status.pkclawConfigured,
+        healthy: status.pkclawHealthy,
+        url: status.pkclawBaseUrl || "",
+        message: status.pkclawMessage || ""
+      })
+    }).catch(() => {
+      setPkclawStatus({ configured: false, healthy: false, url: "", message: "Failed to check status" })
+    })
+  }, [])
 
   // Web Speech API for voice input
   const toggleVoiceInput = () => {
@@ -205,6 +223,22 @@ export default function HomePage() {
             开始打牌
           </Button>
         </Link>
+        {/* PKclaw Status Indicator */}
+        {pkclawStatus && (
+          <div className="flex items-center gap-2 text-xs">
+            {pkclawStatus.healthy ? (
+              <span className="flex items-center gap-1 text-green-400">
+                <Wifi className="h-3 w-3" />
+                已连接
+              </span>
+            ) : (
+              <span className="flex items-center gap-1 text-red-400">
+                <WifiOff className="h-3 w-3" />
+                未连接
+              </span>
+            )}
+          </div>
+        )}
       </div>
 
       {/* Chat Area */}
