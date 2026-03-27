@@ -590,7 +590,7 @@ async function tryPkclawDecision(data: AIRequest): Promise<AIResponse | null> {
   }
 
   try {
-    const response = await fetch(`${baseUrl}/api/decision`, {
+    const response = await fetch(`${baseUrl}`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
