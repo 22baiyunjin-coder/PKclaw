@@ -216,11 +216,16 @@ def _parse_action_history(raw_logs: list[Any], name_to_position: dict[str, str])
     for raw in raw_logs[-40:]:
         if not isinstance(raw, str) or ":" not in raw:
             continue
-        street_text, detail = raw.split(":", 1)
+        try:
+            street_text, detail = raw.split(":", 1)
+        except (AttributeError, ValueError):
+            continue
         street = street_text.strip().lower()
         if street not in {"preflop", "flop", "turn", "river"}:
             continue
 
+        if not isinstance(detail, str):
+            continue
         detail = detail.strip()
         actor_name = next((name for name in ordered_names if detail.startswith(name)), None)
         if actor_name is None:
@@ -229,6 +234,9 @@ def _parse_action_history(raw_logs: list[Any], name_to_position: dict[str, str])
         remainder = detail[len(actor_name) :].strip()
         action = None
         amount = 0.0
+
+        if not isinstance(remainder, str):
+            continue
 
         if remainder.startswith("Fold"):
             action = "fold"
