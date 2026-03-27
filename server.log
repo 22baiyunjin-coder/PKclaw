@@ -1,0 +1,15 @@
+nohup: 忽略输入
+Traceback (most recent call last):
+  File "/home/wyq/PKclaw/main.py", line 12, in <module>
+    from pkbot.ab_test import run_engine_ab_test
+  File "/home/wyq/PKclaw/pkbot/__init__.py", line 3, in <module>
+    from .decision_engine import DecisionEngine
+  File "/home/wyq/PKclaw/pkbot/decision_engine.py", line 3, in <module>
+    from .evaluator_service import EvaluatorService
+  File "/home/wyq/PKclaw/pkbot/evaluator_service.py", line 5, in <module>
+    from .feature_builder import FeatureBuilder
+  File "/home/wyq/PKclaw/pkbot/feature_builder.py", line 5, in <module>
+    from .cards import Card
+  File "/home/wyq/PKclaw/pkbot/cards.py", line 7, in <module>
+    import eval7
+ModuleNotFoundError: No module named 'eval7'

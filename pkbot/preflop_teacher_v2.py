@@ -9,14 +9,14 @@ from .strategy.shared import boost, initialize_weights
 from .strategy.types import PolicyPlan, StrategyContext
 
 OPEN_THRESHOLDS = {
-    "UTG": 0.60,
-    "UTG+1": 0.58,
-    "MP": 0.56,
-    "HJ": 0.50,
-    "CO": 0.44,
-    "BTN": 0.38,
-    "SB": 0.42,
-    "BB": 0.55,
+    "UTG": 0.55,
+    "UTG+1": 0.52,
+    "MP": 0.50,
+    "HJ": 0.44,
+    "CO": 0.38,
+    "BTN": 0.32,
+    "SB": 0.38,
+    "BB": 0.50,
 }
 
 STEAL_THRESHOLDS = {
