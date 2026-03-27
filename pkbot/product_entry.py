@@ -148,6 +148,11 @@ def analyze_decision(
     action_weights = {action: max(weight, 0.01) for action, weight in plan.action_weights.items()}
     total = sum(action_weights.values())
     probabilities = {action: round(weight / total, 3) for action, weight in action_weights.items()}
+    
+    # Fallback if no valid actions
+    if not probabilities:
+        probabilities = {"check": 1.0} if state.legal_actions.can_check else {"fold": 1.0}
+    
     action = max(probabilities, key=probabilities.get)
     size_bucket = plan.size_bucket if action in {"bet", "raise"} else None
     size = sizing_engine.resolve_size(
