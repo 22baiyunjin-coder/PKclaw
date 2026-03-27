@@ -56,7 +56,7 @@ export interface DecisionBackendStatus {
   requirePkclawLocal: boolean
 }
 
-const DEFAULT_PRODUCTION_PKCLAW_BASE_URL = "http://192.144.205.163"
+const DEFAULT_PRODUCTION_PKCLAW_BASE_URL = "http://192.144.205.163:8000"
 
 interface LocalDecisionResponse {
   decision?: {
