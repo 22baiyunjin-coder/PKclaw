@@ -97,13 +97,15 @@ export default function HomePage() {
   // Check PKclaw backend status
   useEffect(() => {
     getDecisionBackendStatus().then(status => {
+      console.log("[PKclaw Status]", status)
       setPkclawStatus({
         configured: status.pkclawConfigured,
         healthy: status.pkclawHealthy,
         url: status.pkclawBaseUrl || "",
         message: status.pkclawMessage || ""
       })
-    }).catch(() => {
+    }).catch(err => {
+      console.error("[PKclaw Status Error]", err)
       setPkclawStatus({ configured: false, healthy: false, url: "", message: "Failed to check status" })
     })
   }, [])
@@ -232,7 +234,7 @@ export default function HomePage() {
                 已连接
               </span>
             ) : (
-              <span className="flex items-center gap-1 text-red-400">
+              <span className="flex items-center gap-1 text-red-400" title={pkclawStatus.message}>
                 <WifiOff className="h-3 w-3" />
                 未连接
               </span>
