@@ -30,8 +30,8 @@ from pkbot.test_scenarios import run_demo_scenarios
 from pkbot.train_policy import print_policy_training_report, save_policy_training_report, train_lightgbm_policy
 from pkbot.train_evaluator import print_training_report, save_training_report, train_lightgbm_evaluator
 
-HOST = os.environ.get("PKCLAW_HOST", "127.0.0.1")
-PORT = int(os.environ.get("PKCLAW_PORT", "8000"))
+HOST = "0.0.0.0"
+PORT = 8000
 DEFAULT_EVALUATOR_MODEL_CANDIDATES = [
     "outputs/evaluator_v1/evaluator_v1_baseline.joblib",
     "outputs/evaluator_v1/evaluator_model.joblib",
